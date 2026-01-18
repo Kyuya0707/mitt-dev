@@ -39,4 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+<<<<<<< HEAD
+app/generated/
+=======
+
+/app/generated/prisma
+.env*.local
+>>>>>>> 3f49ecb (deploy: production ready (auth, pp consent, teaser))
 app/generated/

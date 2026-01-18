@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
@@ -23,4 +25,47 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  @apply bg-gray-50 text-gray-800;
 }
+
+/* ✅ BESTバッジをふわっと光らせるアニメーション */
+@keyframes bestBadgeGlow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+  }
+}
+
+.best-badge-anim {
+  animation: bestBadgeGlow 2s ease-in-out infinite;
+}
+
+/* ✨ BEST回答の輝きエフェクト */
+@keyframes shine {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+
+.markdown-body pre {
+  background: #f8f8f8;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.markdown-body code {
+  background: #f1f1f1;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+

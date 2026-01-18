@@ -1,0 +1,258 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ★追加: 支払いステータス
+enum PaymentStatus {
+  PAID
+  REFUNDED
+}
+
+//
+//  User（Supabase Auth連携も許容）
+//
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  // ▼ 副業・税務の同意日（null → 未同意）
+  consentAt DateTime?
+
+  // ✅ 追加：PP同意
+  ppConsentAt      DateTime?
+  ppConsentVersion String?
+
+  // Relations
+  questions Question[]
+  answers   Answer[]
+  purchases Purchase[]
+  payouts   Payout[]
+
+  readAnswers   AnswerRead[]
+  comments      Comment[]
+  notifications Notification[]
+
+  answerLikes AnswerLike[]
+}
+
+//
+//  Category（カテゴリマスタ）
+//
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  questions Question[]
+}
+
+//
+//  Question（質問本体）
+//
+model Question {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  // user (optional: user can be deleted)
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String?
+
+  // category
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  // imageUrl は廃止 → 複数画像テーブルへ
+  // attachmentUrl String? ←旧仕様は残すならコメントアウトへ
+  // attachmentUrl String?
+
+  // relations
+  answers      Answer[]
+  images       QuestionImage[] // ←🆕追加（複数画像対応）
+  bestAnswerId String?
+  isClosed     Boolean         @default(false)
+
+  rewardAmount Int
+
+  purchases Purchase[]
+
+  // ★追加: この質問が「支払済み」かどうか
+  isPaid Boolean @default(false)
+}
+
+//
+//  Answer（回答）
+//
+model Answer {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  pitch     String?
+  
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId String
+
+  userId String? @db.Text
+  user   User?   @relation(fields: [userId], references: [id])
+
+  likeCount Int @default(0)
+
+  // 複数画像
+  images AnswerImage[]
+
+  // 既読
+  reads AnswerRead[]
+
+  // コメント
+  comments Comment[]
+
+  likes AnswerLike[]
+
+  negotiation Negotiation?
+}
+
+model AnswerLike {
+  userId    String
+  answerId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  answer Answer @relation(fields: [answerId], references: [id])
+
+  @@id([userId, answerId])
+}
+
+//
+//  QuestionImage（質問画像 複数）
+//
+model QuestionImage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId String
+
+  url       String
+  sortOrder Int // ← 並び順
+}
+
+//
+//  課金 Purchase
+//
+model Purchase {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId String
+
+  amount Int
+
+  currency String @default("jpy")
+
+  stripeSessionId String? @unique
+
+  status PaymentStatus @default(PAID) // 👈 ここが修正ポイント
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // e.g. "best", "comment", "answer"
+  message   String
+  url       String? // 通知をクリックした時に飛ぶ先
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+//
+//  Payout（報酬支払い）
+//
+model Payout {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  amount Int
+  status String
+}
+
+//
+//  イベントログ
+//
+model EventLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  type      String
+  payload   Json
+}
+
+model AnswerImage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  answer   Answer @relation(fields: [answerId], references: [id])
+  answerId String
+
+  url       String
+  sortOrder Int    @default(0)
+}
+
+model AnswerRead {
+  id       String   @id @default(cuid())
+  userId   String
+  answerId String
+  readAt   DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  answer Answer @relation(fields: [answerId], references: [id])
+
+  @@unique([userId, answerId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  answerId String
+  answer   Answer @relation(fields: [answerId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Negotiation {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+
+  answerId       String   @unique
+  proposedAmount Int
+  status         NegotiationStatus @default(PENDING)
+
+  answer Answer @relation(fields: [answerId], references: [id])
+}
+
+enum NegotiationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
