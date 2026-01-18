@@ -1,7 +1,19 @@
 // app/api/checkout/question/route.ts
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import Stripe from "stripe";
 import prisma from "@/lib/prisma";
+
+export const runtime = "nodejs"; // Stripe/Prismaなので明示（Edge回避）
+
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("STRIPE_SECRET_KEY is not set");
+  }
+
+  return new Stripe(key);
+}
+
 
 export async function POST(req: Request) {
   try {
@@ -41,6 +53,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const stripe = getStripe();
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -66,7 +80,7 @@ export async function POST(req: Request) {
   } catch (e: any) {
     console.error("❌ /api/checkout/question error:", e);
     return NextResponse.json(
-      { error: e.message ?? "Stripe error" },
+      { error: e?.message ?? "Stripe error" },
       { status: 500 }
     );
   }
