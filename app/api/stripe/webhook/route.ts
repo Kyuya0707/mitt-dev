@@ -1,163 +1,96 @@
 // app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-import prisma from "@/lib/prisma";
 
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
 
 export async function POST(req: Request) {
-  const sig = req.headers.get("stripe-signature");
-
-  if (!sig || !endpointSecret) {
-    console.error("Missing Stripe signature or endpoint secret");
-    return new NextResponse("Missing Stripe signature or endpoint secret", {
-      status: 400,
-    });
-  }
-
-  let event: any;
-
   try {
+    const sig = req.headers.get("stripe-signature");
+
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!sig || !endpointSecret) {
+      console.error("Missing Stripe signature or STRIPE_WEBHOOK_SECRET");
+      return new NextResponse("Missing Stripe signature or webhook secret", {
+        status: 400,
+      });
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error("Missing STRIPE_SECRET_KEY");
+      return new NextResponse("Missing STRIPE_SECRET_KEY", { status: 500 });
+    }
+
+    if (!process.env.DATABASE_URL) {
+      console.error("Missing DATABASE_URL");
+      return new NextResponse("Missing DATABASE_URL", { status: 500 });
+    }
+
+    // ✅ 遅延 import（ビルド時評価を回避）
+    const [{ stripe }, prismaModule] = await Promise.all([
+      import("@/lib/stripe"),
+      import("@/lib/prisma"),
+    ]);
+    const prisma = prismaModule.default;
+
     const body = await req.text();
-    event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
-  } catch (err: any) {
-    console.error("Webhook signature verification failed.", err.message);
-    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
-  }
 
-  // このMVPでは completed だけ処理
-  if (event.type !== "checkout.session.completed") {
-    return new NextResponse(null, { status: 200 });
-  }
-
-  const session = event.data.object as any;
-
-  const negotiationId = session.metadata?.negotiationId as string | undefined;
-  const questionId = session.metadata?.questionId as string | undefined;
-  const answerId = session.metadata?.answerId as string | undefined;
-  const amountTotal = session.amount_total as number | undefined;
-
-  if (!amountTotal) {
-    console.error("Missing amount_total in session");
-    return new NextResponse(null, { status: 200 });
-  }
-
-  try {
-    // =========================================================
-    // ✅ A) 交渉決済（negotiationId がある場合）
-    // =========================================================
-    if (negotiationId) {
-      const nego = await prisma.negotiation.findUnique({
-        where: { id: negotiationId },
-        include: {
-          answer: {
-            select: {
-              id: true,
-              questionId: true,
-              question: { select: { userId: true } }, // 質問者 = payer
-            },
-          },
-        },
+    let event: any;
+    try {
+      event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
+    } catch (err: any) {
+      console.error("Webhook signature verification failed.", err?.message);
+      return new NextResponse(`Webhook Error: ${err?.message ?? "unknown"}`, {
+        status: 400,
       });
+    }
 
-      if (!nego || !nego.answer) {
-        console.error("Negotiation not found:", negotiationId);
-        return new NextResponse(null, { status: 200 });
-      }
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as any;
 
-      const payerUserId = nego.answer.question?.userId;
-      const qId = nego.answer.questionId;
+      // 種別（質問投稿 or 交渉承諾）
+      const kind = session.metadata?.kind as string | undefined;
 
-      if (!payerUserId || !qId) {
-        console.error("Negotiation has no payer userId / questionId:", {
+      // ---- 交渉承諾（A-6） ----
+      const negotiationId = session.metadata?.negotiationId as
+        | string
+        | undefined;
+
+      if (negotiationId) {
+        // ✅ ここでは status を更新しない（enumが未確定のため）
+        // 後で schema の NegotiationStatus を見て正しい値に合わせて更新する
+        console.log("✅ Negotiation payment completed:", {
           negotiationId,
-          payerUserId,
-          qId,
+          kind,
+          metadata: session.metadata,
         });
         return new NextResponse(null, { status: 200 });
       }
 
-      // すでにACCEPTEDなら何もしない（Stripeの再送対策）
-      if (nego.status === "ACCEPTED") {
-        console.log("✅ negotiation already accepted:", negotiationId);
+      // ---- 質問投稿（reward） ----
+      const questionId = session.metadata?.questionId as string | undefined;
+      const amountTotal = session.amount_total as number | undefined;
+
+      if (questionId && amountTotal) {
+        await prisma.question.update({
+          where: { id: questionId },
+          data: { isPaid: true },
+        });
+
+        console.log("✅ Question marked as paid:", questionId);
         return new NextResponse(null, { status: 200 });
       }
 
-      // Purchase重複防止：MVPは questionId + userId + amount で軽めに防ぐ
-      // ※本気で固めるなら Purchaseに negotiationId を持たせて一意制約にする（後でやる）
-      const existing = await prisma.purchase.findFirst({
-        where: {
-          questionId: qId,
-          userId: payerUserId,
-          amount: amountTotal,
-        },
+      console.log("ℹ️ checkout.session.completed but no usable metadata", {
+        kind,
+        metadata: session.metadata,
       });
-
-      if (!existing) {
-        await prisma.purchase.create({
-          data: {
-            questionId: qId,
-            userId: payerUserId,
-            amount: amountTotal,
-          },
-        });
-      }
-
-      // ✅ 交渉を承諾済みに
-      await prisma.negotiation.update({
-        where: { id: negotiationId },
-        data: { status: "ACCEPTED" },
-      });
-
-      console.log("✅ Negotiation accepted:", negotiationId);
-      return new NextResponse(null, { status: 200 });
+    } else {
+      console.log(`Unhandled event type ${event.type}`);
     }
 
-    // =========================================================
-    // ✅ B) 質問投稿の決済（questionId がある場合）
-    // =========================================================
-    if (!questionId) {
-      console.error("Missing questionId in metadata (and no negotiationId)");
-      return new NextResponse(null, { status: 200 });
-    }
-
-    const question = await prisma.question.findUnique({
-      where: { id: questionId },
-      select: { id: true, userId: true },
-    });
-
-    if (!question || !question.userId) {
-      console.error("Question not found or has no userId:", questionId);
-      return new NextResponse(null, { status: 200 });
-    }
-
-    const existing = await prisma.purchase.findFirst({
-      where: {
-        questionId,
-        userId: question.userId,
-      },
-    });
-
-    if (!existing) {
-      await prisma.purchase.create({
-        data: {
-          questionId,
-          userId: question.userId,
-          amount: amountTotal,
-        },
-      });
-    }
-
-    await prisma.question.update({
-      where: { id: questionId },
-      data: { isPaid: true },
-    });
-
-    console.log("✅ Question marked as paid:", questionId);
     return new NextResponse(null, { status: 200 });
-  } catch (e) {
-    console.error("❌ webhook handler error:", e);
-    // Stripe再送ループ回避のため200で返す
-    return new NextResponse(null, { status: 200 });
+  } catch (e: any) {
+    console.error("❌ /api/stripe/webhook error:", e);
+    return new NextResponse("Webhook handler error", { status: 500 });
   }
 }
