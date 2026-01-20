@@ -1,32 +1,47 @@
 // app/api/checkout/sessions/route.ts
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-import prisma from "@/lib/prisma";
+
+export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-
     const negotiationId = body.negotiationId as string | undefined;
 
     if (!negotiationId) {
-      console.error("❌ negotiationId missing:", { negotiationId });
       return NextResponse.json(
         { error: "negotiationId is required" },
         { status: 400 }
       );
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!baseUrl) {
-      console.error("❌ NEXT_PUBLIC_SITE_URL is not set");
+    // ✅ baseUrl は env 優先、なければリクエストから組み立て
+    const envBaseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const baseUrl = envBaseUrl && envBaseUrl.length > 0
+      ? envBaseUrl
+      : new URL(req.url).origin;
+
+    // ✅ env未設定でビルド落ちしないように、ここで判定して返す
+    if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json(
-        { error: "NEXT_PUBLIC_SITE_URL is not set" },
+        { error: "STRIPE_SECRET_KEY is not set" },
+        { status: 500 }
+      );
+    }
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: "DATABASE_URL is not set" },
         { status: 500 }
       );
     }
 
-    // ✅ 交渉情報をDBから取得（ここで金額を確定）
+    // ✅ 遅延import（ビルド時評価で落ちないようにする）
+    const [{ stripe }, prismaModule] = await Promise.all([
+      import("@/lib/stripe"),
+      import("@/lib/prisma"),
+    ]);
+    const prisma = prismaModule.default;
+
     const negotiation = await prisma.negotiation.findUnique({
       where: { id: negotiationId },
       select: {
@@ -34,10 +49,7 @@ export async function POST(req: Request) {
         status: true,
         proposedAmount: true,
         answer: {
-          select: {
-            id: true,
-            questionId: true,
-          },
+          select: { id: true, questionId: true },
         },
       },
     });
@@ -56,16 +68,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const amount = negotiation.proposedAmount;
-    const questionId = negotiation.answer.questionId;
-    const answerId = negotiation.answer.id;
-
+    const amount = Math.round(Number(negotiation.proposedAmount));
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
         { error: "Invalid proposedAmount" },
         { status: 400 }
       );
     }
+
+    const questionId = negotiation.answer.questionId;
+    const answerId = negotiation.answer.id;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -74,25 +86,19 @@ export async function POST(req: Request) {
         {
           price_data: {
             currency: "jpy",
-            product_data: {
-              name: "KnowValue 回答の閲覧（交渉承諾）",
-            },
+            product_data: { name: "KnowValue 回答の閲覧（交渉承諾）" },
             unit_amount: amount,
           },
           quantity: 1,
         },
       ],
-      // ✅ Webhookで使う
       metadata: {
         negotiationId,
         questionId,
         answerId,
         proposedAmount: String(amount),
       },
-
-      // ✅ 決済完了後は質問詳細へ戻す
       success_url: `${baseUrl}/questions/${questionId}?paid=1`,
-      // ✅ キャンセルしたら戻る
       cancel_url: `${baseUrl}/questions/${questionId}?cancel=1`,
     });
 
@@ -100,7 +106,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("❌ /api/checkout/sessions error:", error);
     return NextResponse.json(
-      { error: error.message ?? "Stripe error" },
+      { error: error?.message ?? "Stripe error" },
       { status: 500 }
     );
   }
