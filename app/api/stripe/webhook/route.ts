@@ -1,13 +1,13 @@
 // app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
     const sig = req.headers.get("stripe-signature");
-
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
     if (!sig || !endpointSecret) {
       console.error("Missing Stripe signature or STRIPE_WEBHOOK_SECRET");
       return new NextResponse("Missing Stripe signature or webhook secret", {
@@ -44,33 +44,32 @@ export async function POST(req: Request) {
       });
     }
 
+    // ✅ 決済完了イベント
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as any;
 
-      // 種別（質問投稿 or 交渉承諾）
-      const kind = session.metadata?.kind as string | undefined;
-
-      // ---- 交渉承諾（A-6） ----
+      // Supabase/Stripe 側で metadata に入れている値
       const negotiationId = session.metadata?.negotiationId as
         | string
         | undefined;
+      const questionId = session.metadata?.questionId as string | undefined;
 
+      // ---- 交渉承諾の支払い（A-6）----
       if (negotiationId) {
-        // ✅ ここでは status を更新しない（enumが未確定のため）
-        // 後で schema の NegotiationStatus を見て正しい値に合わせて更新する
-        console.log("✅ Negotiation payment completed:", {
-          negotiationId,
-          kind,
-          metadata: session.metadata,
+        await prisma.negotiation.update({
+          where: { id: negotiationId },
+          data: {
+            // ✅ enum に存在する値を使う
+            status: "ACCEPTED",
+          },
         });
+
+        console.log("✅ Negotiation marked as ACCEPTED:", negotiationId);
         return new NextResponse(null, { status: 200 });
       }
 
-      // ---- 質問投稿（reward） ----
-      const questionId = session.metadata?.questionId as string | undefined;
-      const amountTotal = session.amount_total as number | undefined;
-
-      if (questionId && amountTotal) {
+      // ---- 質問投稿の支払い（reward）----
+      if (questionId) {
         await prisma.question.update({
           where: { id: questionId },
           data: { isPaid: true },
@@ -81,13 +80,13 @@ export async function POST(req: Request) {
       }
 
       console.log("ℹ️ checkout.session.completed but no usable metadata", {
-        kind,
         metadata: session.metadata,
       });
-    } else {
-      console.log(`Unhandled event type ${event.type}`);
+      return new NextResponse(null, { status: 200 });
     }
 
+    // 他イベントは今は無視でOK（必要になったら追加）
+    console.log(`Unhandled event type ${event.type}`);
     return new NextResponse(null, { status: 200 });
   } catch (e: any) {
     console.error("❌ /api/stripe/webhook error:", e);
