@@ -1,0 +1,7 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" rx="56" fill="#0B0B0D"></rect>
+  <!-- K -->
+  <path d="M70 70 L70 186 M70 128 L130 70 M70 128 L130 186" stroke="#D4AF37" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"></path>
+  <!-- V（チェックマーク風） -->
+  <path d="M150 90 L186 128 L150 166" stroke="#F5D97E" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>

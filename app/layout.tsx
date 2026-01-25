@@ -5,6 +5,9 @@ import Script from "next/script";
 export const metadata: Metadata = {
   title: "KnowValue",
   description: "暗闇の中から、本当に価値ある情報を見つけ出す。",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
