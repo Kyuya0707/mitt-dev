@@ -4,6 +4,22 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const dbUrl = process.env.DATABASE_URL || "";
+const directUrl = process.env.DIRECT_URL || "";
+
+const safeHost = (url: string) => {
+  try {
+    const u = new URL(url);
+    return `${u.hostname}:${u.port || "(no-port)"}`;
+  } catch {
+    return "(invalid url)";
+  }
+};
+
+console.log("[DB URL host]", safeHost(dbUrl));
+console.log("[DIRECT_URL host]", safeHost(directUrl));
+
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
