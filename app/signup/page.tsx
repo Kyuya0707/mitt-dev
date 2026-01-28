@@ -130,6 +130,8 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState("");
 
   const [bio, setBio] = useState("");
   const [website, setWebsite] = useState("");
@@ -163,7 +165,7 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-
+    
     // ✅ PP同意必須
     if (!ppAgreed) {
       setErrorMsg("プライバシーポリシーに同意してください。");
@@ -193,6 +195,7 @@ export default function SignupPage() {
     }
 
     // 2) サインアップ（確認メール）
+    const fullName = `${lastName} ${firstName}`;
     const redirectBase =
       process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
 
@@ -202,6 +205,7 @@ export default function SignupPage() {
       options: {
         emailRedirectTo: `${redirectBase}/auth/callback`,
         data: {
+          full_name: fullName,
           username,
           bio,
           website,
@@ -264,6 +268,28 @@ export default function SignupPage() {
               onChange={handleImageSelect}
             />
           </label>
+        </div>
+
+        {/* 姓 */}
+        <div>
+          <label className="block text-gray-700 mb-1">姓（本名）</label>
+          <input
+            className="w-full border p-2 rounded text-black"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* 名 */}
+        <div>
+          <label className="block text-gray-700 mb-1">名（本名）</label>
+          <input
+            className="w-full border p-2 rounded text-black"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+          />
         </div>
 
         {/* ユーザー名 */}
