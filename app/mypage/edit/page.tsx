@@ -60,6 +60,9 @@ export default function MyPageEdit() {
   const [errorMsg, setErrorMsg] = useState("");
   const [okMsg, setOkMsg] = useState("");
 
+  const [newEmail, setNewEmail] = useState("");
+  const [emailMsg, setEmailMsg] = useState("");
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -302,6 +305,54 @@ export default function MyPageEdit() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* ===== メールアドレス変更 ===== */}
+        <div className="border-t pt-6">
+          <h2 className="text-lg font-semibold mb-3">メールアドレス変更</h2>
+
+          <p className="text-sm text-gray-600 mb-2">
+            新しいメールアドレスを入力すると、確認メールが送信されます。
+            確認完了後にメールアドレスが更新されます。
+          </p>
+
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            className="w-full border p-2 rounded mb-2"
+            placeholder="new-email@example.com"
+          />
+
+          <button
+            type="button"
+            onClick={async () => {
+              setEmailMsg("");
+              if (!newEmail) {
+                setEmailMsg("新しいメールアドレスを入力してください。");
+                return;
+              }
+            
+              const { error } = await supabase.auth.updateUser({
+                email: newEmail,
+              });
+            
+              if (error) {
+                setEmailMsg("メール変更に失敗しました: " + error.message);
+                return;
+              }
+            
+              setEmailMsg(
+                "確認メールを送信しました。新しいメールアドレスをご確認ください。"
+              );
+              setNewEmail("");
+            }}
+            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-black"
+          >
+            確認メールを送信
+          </button>
+          
+          {emailMsg && <p className="text-sm mt-2 text-blue-700">{emailMsg}</p>}
         </div>
 
         {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
