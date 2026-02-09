@@ -41,14 +41,13 @@ export async function POST(req: Request) {
     await prisma.user.upsert({
       where: { id },
       update: {
-        // 既にユーザーがいる場合でも、同意情報が来ていたら更新できるように
+        email, // ← ★ これが必須
         ...(ppConsentAt ? { ppConsentAt } : {}),
         ...(ppConsentVersion ? { ppConsentVersion } : {}),
       },
       create: {
         id,
         email,
-        // 初回作成時に同意情報も保存
         ...(ppConsentAt ? { ppConsentAt } : {}),
         ...(ppConsentVersion ? { ppConsentVersion } : {}),
       },

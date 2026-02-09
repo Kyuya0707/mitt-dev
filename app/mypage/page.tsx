@@ -72,6 +72,18 @@ export default async function MyPage() {
 
   const isAgreed = !!dbUser.consentAt;
 
+  // dbUser 取得後
+  if (user.email && dbUser.email !== user.email) {
+    try {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { email: user.email },
+      });
+    } catch (e) {
+      console.error("Failed to sync email to Prisma:", e);
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto p-6 mt-10 text-black">
       <h1 className="text-3xl font-bold mb-8">マイページ</h1>
@@ -85,7 +97,7 @@ export default async function MyPage() {
         </p>
 
         <p>
-          <span className="font-semibold">メール：</span> {dbUser.email}
+          <span className="font-semibold">メール：</span> {user.email ?? dbUser.email}
         </p>
 
         <p className="mt-2">
