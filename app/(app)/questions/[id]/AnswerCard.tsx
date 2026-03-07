@@ -5,8 +5,18 @@ import { useMemo, useState } from "react";
 import ImageLightbox from "./ImageLightbox";
 import { StarIcon } from "@heroicons/react/24/solid";
 import ReactMarkdown from "react-markdown";
+import type { AnswerComment, QuestionAnswer } from "./types";
 
-type NegotiationStatus = "PENDING" | "ACCEPTED" | "REJECTED";
+type AnswerCardProps = {
+  ans: QuestionAnswer;
+  isBest: boolean;
+  isAuthor: boolean;
+  markRead: (answerId: string) => Promise<boolean | null>;
+  onQuote?: () => void;
+  currentUserId: string | null;
+};
+
+type CommentApiResponse = AnswerComment;
 
 export default function AnswerCard({
   ans,
@@ -15,44 +25,31 @@ export default function AnswerCard({
   markRead,
   onQuote,
   currentUserId,
-}: any) {
+}: AnswerCardProps) {
   const [likes, setLikes] = useState(ans.likeCount || 0);
   const [isLoading, setIsLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-
-  // ✅ コメント：リロードなしで反映
-  const [comments, setComments] = useState<any[]>(ans.comments || []);
+  const [comments, setComments] = useState<AnswerComment[]>(ans.comments ?? []);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
 
-  // ✅ 表示名（answers.include.user が必要）
   const authorName = useMemo(() => {
-    return (
-      ans.user?.name ||
-      ans.user?.user_metadata?.username ||
-      ans.user?.email ||
-      "User"
-    );
+    return ans.user?.name || ans.user?.email || "User";
   }, [ans.user]);
 
-  // ✅ 自分の回答には引用ボタンを出さない
-  const canQuote = !!onQuote && !!currentUserId && ans.userId !== currentUserId;
+  const canQuote =
+    !!onQuote && !!currentUserId && ans.userId !== currentUserId && !ans.locked;
 
-  const images = ans.images || [];
-
-  // ✅ 交渉（MVP）
-  const negotiation = ans.negotiation as
-    | { id: string; proposedAmount: number; status: NegotiationStatus }
-    | undefined;
+  const images = ans.images;
+  const negotiation = ans.negotiation;
 
   const status = negotiation?.status;
   const isPending = status === "PENDING";
   const isRejected = status === "REJECTED";
   const isAccepted = status === "ACCEPTED";
 
-  /* =========================================================
-     ★ BEST設定処理（API 経由）
-  ========================================================= */
+  void markRead;
+
   const handleBest = async () => {
     try {
       const res = await fetch("/api/best", {
@@ -64,18 +61,15 @@ export default function AnswerCard({
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { success?: boolean };
       if (data.success) window.location.reload();
       else alert("BEST設定に失敗しました");
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       alert("通信エラーが発生しました");
     }
   };
 
-  /* =========================================================
-     ★ いいね処理
-  ========================================================= */
   const handleLike = async () => {
     if (isLoading) return;
     setIsLoading(true);
@@ -87,17 +81,14 @@ export default function AnswerCard({
         body: JSON.stringify({ answerId: ans.id }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { likeCount?: number };
       if (data.likeCount !== undefined) setLikes(data.likeCount);
     } finally {
       setIsLoading(false);
     }
   };
 
-  /* =========================================================
-     ★ コメント追加（リロードなし / API返却を反映）
-  ========================================================= */
-  const handleAddComment = async (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (commentLoading) return;
 
@@ -118,7 +109,7 @@ export default function AnswerCard({
         return;
       }
 
-      const newComment = await res.json();
+      const newComment = (await res.json()) as CommentApiResponse;
       setCommentText("");
       setComments((prev) => [...prev, newComment]);
     } finally {
@@ -126,9 +117,6 @@ export default function AnswerCard({
     }
   };
 
-  /* =========================================================
-     ★ 交渉：見送り（API側で権限チェックする）
-  ========================================================= */
   const handleRejectNegotiation = async () => {
     if (!negotiation?.id) {
       alert("交渉IDが見つかりません");
@@ -146,21 +134,18 @@ export default function AnswerCard({
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
         alert(err.error || "見送りに失敗しました");
         return;
       }
 
       window.location.reload();
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       alert("通信エラーが発生しました");
     }
   };
 
-  /* =========================================================
-     ★ 交渉：承諾 → Stripeへ
-  ========================================================= */
   const handleAcceptNegotiation = async () => {
     if (!negotiation?.id) {
       alert("交渉IDが見つかりません");
@@ -176,7 +161,7 @@ export default function AnswerCard({
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; url?: string };
 
       if (!res.ok) {
         alert(data.error || "決済セッション作成に失敗しました");
@@ -189,8 +174,8 @@ export default function AnswerCard({
       }
 
       window.location.href = data.url;
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       alert("通信エラーが発生しました");
     }
   };
@@ -203,7 +188,6 @@ export default function AnswerCard({
           : "bg-white border-gray-200"
       }`}
     >
-      {/* BESTバッジ */}
       {isBest && (
         <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-200 text-yellow-900 text-sm font-bold">
           <StarIcon className="w-4 h-4" />
@@ -211,7 +195,6 @@ export default function AnswerCard({
         </div>
       )}
 
-      {/* ヘッダー */}
       <div className="flex justify-between mb-3 items-center">
         <span className="text-sm text-gray-700">{authorName}</span>
 
@@ -227,8 +210,11 @@ export default function AnswerCard({
         </span>
       </div>
 
-      {/* ✅ 本文 or 交渉カード */}
-      {negotiation && isPending ? (
+      {ans.locked ? (
+        <div className="mt-3 p-4 rounded-lg border border-gray-300 bg-gray-50 text-sm text-gray-700">
+          This answer is a BEST answer. Viewing requires payment.
+        </div>
+      ) : negotiation && isPending ? (
         <div className="mt-3 p-4 rounded-lg border border-purple-200 bg-purple-50">
           <div className="font-semibold text-purple-800 mb-2">
             回答提案（交渉カード）
@@ -292,7 +278,7 @@ export default function AnswerCard({
 
             {images.length > 0 && (
               <div className="mt-4 grid grid-cols-3 gap-2">
-                {images.map((img: any, index: number) => (
+                {images.map((img, index) => (
                   <img
                     key={img.id}
                     src={img.url}
@@ -311,7 +297,6 @@ export default function AnswerCard({
         )
       ) : (
         <>
-          {/* Markdown本文 */}
           <div
             className="
               prose prose-sm max-w-none text-gray-800
@@ -326,10 +311,9 @@ export default function AnswerCard({
             <ReactMarkdown>{ans.content ?? ""}</ReactMarkdown>
           </div>
 
-          {/* 画像（本文表示のときだけ） */}
           {images.length > 0 && (
             <div className="mt-4 grid grid-cols-3 gap-2">
-              {images.map((img: any, index: number) => (
+              {images.map((img, index) => (
                 <img
                   key={img.id}
                   src={img.url}
@@ -343,7 +327,6 @@ export default function AnswerCard({
         </>
       )}
 
-      {/* いいね / 引用 */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -365,7 +348,6 @@ export default function AnswerCard({
         )}
       </div>
 
-      {/* BEST操作（BESTじゃない時だけ） */}
       {!isBest && (
         <div className="mt-4">
           <button
@@ -379,10 +361,9 @@ export default function AnswerCard({
         </div>
       )}
 
-      {/* Lightbox */}
       {lightboxIndex !== null && images.length > 0 && (
         <ImageLightbox
-          images={images.map((img: any) => img.url)}
+          images={images.map((img) => img.url)}
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onPrev={() =>
@@ -392,39 +373,41 @@ export default function AnswerCard({
         />
       )}
 
-      {/* コメント一覧 */}
-      <div className="mt-4 space-y-3">
-        {comments.map((c: any) => (
-          <div key={c.id} className="text-sm bg-gray-50 p-2 rounded">
-            <span className="font-semibold">
-              {c.user?.name || c.user?.user_metadata?.username || "User"}
-            </span>
-            <span className="text-gray-600 ml-2">{c.content}</span>
-            <span className="text-xs text-gray-400 ml-2">
-              {new Date(c.createdAt).toLocaleString()}
-            </span>
+      {!ans.locked && (
+        <>
+          <div className="mt-4 space-y-3">
+            {comments.map((comment) => (
+              <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
+                <span className="font-semibold">
+                  {comment.user?.name || comment.user?.email || "User"}
+                </span>
+                <span className="text-gray-600 ml-2">{comment.content}</span>
+                <span className="text-xs text-gray-400 ml-2">
+                  {new Date(comment.createdAt).toLocaleString()}
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* コメント投稿（リロード無し） */}
-      <form onSubmit={handleAddComment} className="mt-3 flex gap-2">
-        <input
-          type="text"
-          name="comment"
-          placeholder="コメントを書く..."
-          className="w-full border rounded px-2 py-1 text-sm"
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-        />
-        <button
-          type="submit"
-          disabled={commentLoading}
-          className="px-3 py-1 rounded bg-gray-900 text-white text-sm disabled:opacity-50"
-        >
-          {commentLoading ? "送信中" : "送信"}
-        </button>
-      </form>
+          <form onSubmit={handleAddComment} className="mt-3 flex gap-2">
+            <input
+              type="text"
+              name="comment"
+              placeholder="コメントを書く..."
+              className="w-full border rounded px-2 py-1 text-sm"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={commentLoading}
+              className="px-3 py-1 rounded bg-gray-900 text-white text-sm disabled:opacity-50"
+            >
+              {commentLoading ? "送信中" : "送信"}
+            </button>
+          </form>
+        </>
+      )}
     </div>
   );
 }

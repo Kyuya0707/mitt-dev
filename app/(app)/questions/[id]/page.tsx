@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import QuestionImages from "./QuestionImages";
 import QuestionReadClient from "./QuestionReadClient";
 import QuestionInteractionClient from "./QuestionInteractionClient";
+import type { QuestionAnswer } from "./types";
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -115,6 +116,8 @@ export default async function Page({
   }
 
   const isAuthor = authUser?.id === question.userId;
+  const hasPurchasedBestAnswer = false;
+  const canViewBestAnswer = isAuthor || hasPurchasedBestAnswer;
 
   /* =========================================================
      🔒 未決済のとき → 投稿者以外には非公開
@@ -147,7 +150,27 @@ export default async function Page({
     include: { category: true },
   });
 
-  const sortedAnswers = [...question.answers].sort((a, b) => {
+  const answersWithLock: QuestionAnswer[] = question.answers.map((answer) => {
+    const isLockedBest =
+      answer.id === question.bestAnswerId && !canViewBestAnswer;
+
+    if (isLockedBest) {
+      return {
+        ...answer,
+        content: null,
+        images: [],
+        comments: null,
+        locked: true,
+      };
+    }
+
+    return {
+      ...answer,
+      locked: false,
+    };
+  });
+
+  const sortedAnswers = [...answersWithLock].sort((a, b) => {
     if (a.id === question.bestAnswerId) return -1;
     if (b.id === question.bestAnswerId) return 1;
     return 0;
