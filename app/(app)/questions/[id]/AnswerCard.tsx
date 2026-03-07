@@ -34,7 +34,7 @@ export default function AnswerCard({
   const [commentLoading, setCommentLoading] = useState(false);
 
   const authorName = useMemo(() => {
-    return ans.user?.name || ans.user?.email || "User";
+    return ans.user?.name || "匿名ユーザー";
   }, [ans.user]);
 
   const canQuote =
@@ -379,7 +379,7 @@ export default function AnswerCard({
             {comments.map((comment) => (
               <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
                 <span className="font-semibold">
-                  {comment.user?.name || comment.user?.email || "User"}
+                  {comment.user?.name || "匿名ユーザー"}
                 </span>
                 <span className="text-gray-600 ml-2">{comment.content}</span>
                 <span className="text-xs text-gray-400 ml-2">

@@ -41,6 +41,13 @@ export async function GET(
     }
 
     const isAuthor = authUser?.id === question.userId;
+    if (!question.isPaid && !isAuthor) {
+      return NextResponse.json(
+        { error: "この質問はまだ公開されていません" },
+        { status: 403 }
+      );
+    }
+
     const hasPurchasedBestAnswer = false;
     const canViewBestAnswer = isAuthor || hasPurchasedBestAnswer;
 

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { supabaseServer } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 
 // ================================
 // ファイル名を安全に変換（日本語・スペース禁止）
@@ -22,9 +23,39 @@ function safeFileName(originalName: string) {
 // ================================
 export async function GET() {
   try {
-    const questions = await prisma.question.findMany({
+    const authUser = await getCurrentUser();
+
+    const rawQuestions = await prisma.question.findMany({
       orderBy: { createdAt: "desc" },
       include: { category: true, answers: true, images: true },
+    });
+
+    const questions = rawQuestions.map((question) => {
+      const isAuthor = authUser?.id === question.userId;
+
+      const answers = question.answers.map((answer) => {
+        const isLockedBest = answer.id === question.bestAnswerId && !isAuthor;
+
+        if (isLockedBest) {
+          return {
+            ...answer,
+            content: null,
+            images: [],
+            comments: null,
+            locked: true,
+          };
+        }
+
+        return {
+          ...answer,
+          locked: false,
+        };
+      });
+
+      return {
+        ...question,
+        answers,
+      };
     });
 
     const categories = await prisma.category.findMany({
