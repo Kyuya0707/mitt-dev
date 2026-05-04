@@ -25,16 +25,35 @@ const ERROR_MAP: Array<{ match: string; message: string }> = [
   },
 ];
 
-function extractMessage(input: ErrorLike) {
+function isErrorLikeObject(
+  input: unknown
+): input is NonNullable<Exclude<ErrorLike, string>> {
+  return typeof input === "object" && input !== null;
+}
+
+function extractMessage(input: unknown) {
   if (typeof input === "string") {
     return input.trim();
   }
 
-  if (!input) {
+  if (input instanceof Error) {
+    return input.message.trim();
+  }
+
+  if (!isErrorLikeObject(input)) {
     return "";
   }
 
-  return (input.error ?? input.message ?? input.code ?? "").trim();
+  const message =
+    typeof input.error === "string"
+      ? input.error
+      : typeof input.message === "string"
+        ? input.message
+        : typeof input.code === "string"
+          ? input.code
+          : "";
+
+  return message.trim();
 }
 
 function looksJapanese(message: string) {
@@ -42,7 +61,7 @@ function looksJapanese(message: string) {
 }
 
 export function toJapaneseErrorMessage(
-  input: ErrorLike,
+  input: unknown,
   fallback = "予期しないエラーが発生しました"
 ) {
   const message = extractMessage(input);
