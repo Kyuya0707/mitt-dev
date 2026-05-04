@@ -26,27 +26,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // すでに押してるか？
-    const existing = await prisma.answerLike.findUnique({
-      where: {
-        userId_answerId: {
-          userId: user.id,
-          answerId,
-        },
-      },
-    });
-
-    if (!existing) {
-      // 👍 まだ → 追加
-      await prisma.answerLike.create({
-        data: {
-          userId: user.id,
-          answerId,
-        },
+    const result = await prisma.$transaction(async (tx) => {
+      const answer = await tx.answer.findUnique({
+        where: { id: answerId },
+        select: { id: true },
       });
-    } else {
-      // 👎 すでに押してる → 解除
-      await prisma.answerLike.delete({
+
+      if (!answer) {
+        return { ok: false as const, status: 404, error: "回答が見つかりません" };
+      }
+
+      const existing = await tx.answerLike.findUnique({
         where: {
           userId_answerId: {
             userId: user.id,
@@ -54,14 +44,49 @@ export async function POST(req: Request) {
           },
         },
       });
-    }
 
-    // 最新いいね数を返す
-    const likeCount = await prisma.answerLike.count({
-      where: { answerId },
+      if (!existing) {
+        await tx.answerLike.create({
+          data: {
+            userId: user.id,
+            answerId,
+          },
+        });
+      } else {
+        await tx.answerLike.delete({
+          where: {
+            userId_answerId: {
+              userId: user.id,
+              answerId,
+            },
+          },
+        });
+      }
+
+      const likeCount = await tx.answerLike.count({
+        where: { answerId },
+      });
+
+      await tx.answer.update({
+        where: { id: answerId },
+        data: { likeCount },
+      });
+
+      return {
+        ok: true as const,
+        likeCount,
+        liked: !existing,
+      };
     });
 
-    return NextResponse.json({ likeCount });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    return NextResponse.json({
+      likeCount: result.likeCount,
+      liked: result.liked,
+    });
   } catch (e) {
     console.error("❌ like api error", e);
     return NextResponse.json(

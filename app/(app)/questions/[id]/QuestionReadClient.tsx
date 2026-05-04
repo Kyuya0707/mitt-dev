@@ -7,13 +7,19 @@ import { useNotifications } from "@/app/context/NotificationContext";
 export default function QuestionReadClient({
   questionId,
   fromNotification,
+  isQuestionOwner,
 }: {
   questionId: string;
   fromNotification: boolean;
+  isQuestionOwner: boolean;
 }) {
   const { refresh } = useNotifications();
 
   useEffect(() => {
+    if (!isQuestionOwner) {
+      return;
+    }
+
     const run = async () => {
       // ✅ 通常アクセス：即既読
       if (!fromNotification) {
@@ -36,7 +42,7 @@ export default function QuestionReadClient({
     };
 
     run();
-  }, [questionId, fromNotification, refresh]);
+  }, [questionId, fromNotification, isQuestionOwner, refresh]);
 
   return null;
 }

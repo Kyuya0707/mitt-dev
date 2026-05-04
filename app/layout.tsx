@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Script from "next/script";
+import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: "KnowValue",
@@ -37,7 +38,9 @@ export default function RootLayout({
           </>
         )}
       </head>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getCurrentUser } from "@/lib/auth";
+import { sortCategoryNames } from "@/lib/category-options";
+import { validateViewerPrice } from "@/lib/viewer-price";
 
 // ================================
 // ファイル名を安全に変換（日本語・スペース禁止）
@@ -58,9 +60,9 @@ export async function GET() {
       };
     });
 
-    const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" },
-    });
+    const categories = sortCategoryNames(
+      await prisma.category.findMany()
+    );
 
     return NextResponse.json({ questions, categories });
   } catch (error) {
@@ -104,6 +106,16 @@ export async function POST(req: Request) {
       });
     }
 
+    if (!prismaUser.ppConsentAt && !prismaUser.consentAt) {
+      return NextResponse.json(
+        {
+          error:
+            "質問を投稿するには、副業・税務に関する同意が必要です。",
+        },
+        { status: 403 }
+      );
+    }
+
     // --- multipart/form-data ---
     const formData = await req.formData();
 
@@ -111,11 +123,34 @@ export async function POST(req: Request) {
     const body = formData.get("body")?.toString();
     const categoryId = formData.get("categoryId")?.toString();
     const rewardAmount = Number(formData.get("rewardAmount") || 0);
+    const viewerPriceRaw = formData.get("viewerPrice");
 
     // 入力チェック
     if (!title || !body || !categoryId) {
       return NextResponse.json(
         { error: "必須項目が不足しています" },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(rewardAmount) || !Number.isInteger(rewardAmount)) {
+      return NextResponse.json(
+        { error: "報酬額は整数で入力してください" },
+        { status: 400 }
+      );
+    }
+
+    if (rewardAmount < 500) {
+      return NextResponse.json(
+        { error: "報酬額は500円以上で入力してください" },
+        { status: 400 }
+      );
+    }
+
+    const viewerPriceValidation = validateViewerPrice(viewerPriceRaw);
+    if (!viewerPriceValidation.ok) {
+      return NextResponse.json(
+        { error: viewerPriceValidation.message },
         { status: 400 }
       );
     }
@@ -142,6 +177,7 @@ export async function POST(req: Request) {
         userId: prismaUser.id,
         categoryId,
         rewardAmount,
+        viewerPrice: viewerPriceValidation.value,
       },
     });
 

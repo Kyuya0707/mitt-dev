@@ -1,10 +1,20 @@
 // app/api/checkout/sessions/route.ts
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
 
 export async function POST(req: Request) {
   try {
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "ログインしてください" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const negotiationId = body.negotiationId as string | undefined;
 
@@ -48,6 +58,13 @@ export async function POST(req: Request) {
         id: true,
         status: true,
         proposedAmount: true,
+        questionId: true,
+        question: {
+          select: {
+            rewardAmount: true,
+            userId: true,
+          },
+        },
         answer: {
           select: { id: true, questionId: true },
         },
@@ -61,6 +78,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (negotiation.question?.userId !== currentUser.id) {
+      return NextResponse.json(
+        { error: "この交渉の追加決済を開始する権限がありません" },
+        { status: 403 }
+      );
+    }
+
     if (negotiation.status !== "PENDING") {
       return NextResponse.json(
         { error: "This negotiation is not pending" },
@@ -68,10 +92,29 @@ export async function POST(req: Request) {
       );
     }
 
-    const amount = Math.round(Number(negotiation.proposedAmount));
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const proposedAmount = Math.round(Number(negotiation.proposedAmount));
+    const originalRewardAmount = Math.round(
+      Number(negotiation.question?.rewardAmount)
+    );
+    const chargedAmount = proposedAmount - originalRewardAmount;
+
+    if (!Number.isFinite(proposedAmount) || proposedAmount <= 0) {
       return NextResponse.json(
         { error: "Invalid proposedAmount" },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(originalRewardAmount) || originalRewardAmount <= 0) {
+      return NextResponse.json(
+        { error: "Invalid originalRewardAmount" },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(chargedAmount) || chargedAmount <= 0) {
+      return NextResponse.json(
+        { error: "追加決済は不要です" },
         { status: 400 }
       );
     }
@@ -86,27 +129,30 @@ export async function POST(req: Request) {
         {
           price_data: {
             currency: "jpy",
-            product_data: { name: "KnowValue 回答の閲覧（交渉承諾）" },
-            unit_amount: amount,
+            product_data: { name: "KnowValue 交渉成立時の追加支払い" },
+            unit_amount: chargedAmount,
           },
           quantity: 1,
         },
       ],
       metadata: {
+        kind: "negotiation_accept",
         negotiationId,
         questionId,
         answerId,
-        proposedAmount: String(amount),
+        originalRewardAmount: String(originalRewardAmount),
+        proposedAmount: String(proposedAmount),
+        chargedAmount: String(chargedAmount),
       },
-      success_url: `${baseUrl}/questions/${questionId}?paid=1`,
-      cancel_url: `${baseUrl}/questions/${questionId}?cancel=1`,
+      success_url: `${baseUrl}/questions/${questionId}?negotiation_paid=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/questions/${questionId}?negotiation_cancel=1`,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ /api/checkout/sessions error:", error);
     return NextResponse.json(
-      { error: error?.message ?? "Stripe error" },
+      { error: error instanceof Error ? error.message : "Stripe error" },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -27,27 +28,39 @@ enum ReportReason {
 }
 
 model User {
-  id        String   @id
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id                 String   @id
+  email              String   @unique
+  username           String?  @unique
+  name               String?
+  createdAt          DateTime @default(now())
+  interestCategories String[] @default([])
 
   consentAt DateTime?
 
-  ppConsentAt      DateTime?
-  ppConsentVersion String?
+  ppConsentAt                            DateTime?
+  ppConsentVersion                       String?
+  stripeAccountId                        String?   @unique
+  stripeConnectOnboardingCompleted       Boolean   @default(false)
+  stripeConnectChargesEnabled            Boolean   @default(false)
+  stripeConnectPayoutsEnabled            Boolean   @default(false)
+  stripeConnectDetailsSubmitted          Boolean   @default(false)
+  stripeConnectRequirementsCurrentlyDue  Json?
+  stripeConnectRequirementsEventuallyDue Json?
+  stripeConnectDisabledReason            String?
 
   trustScore Int    @default(50)
   rank       String @default("WHITE")
 
-  questions Question[]
-  answers   Answer[]
-  purchases Purchase[]
-  payouts   Payout[]
+  questions       Question[]
+  answers         Answer[]
+  purchases       Purchase[]
+  payouts         Payout[]
+  bestViewPayouts BestViewPayout[] @relation("BestViewPayoutRecipientUser")
 
-  readAnswers   AnswerRead[]
-  comments      Comment[]
-  notifications Notification[]
+  readAnswers            AnswerRead[]
+  comments               Comment[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
 
   answerLikes AnswerLike[]
   reports     Report[]
@@ -90,6 +103,7 @@ model Question {
   deadlineAt DateTime?
 
   purchases Purchase[]
+  payouts   Payout[]
 
   negotiations Negotiation[]
 
@@ -124,6 +138,7 @@ model Answer {
   negotiation Negotiation?
 
   reports Report[]
+  payout  Payout?
 }
 
 model AnswerLike {
@@ -219,6 +234,60 @@ model Purchase {
   stripeSessionId String? @unique
 
   status PaymentStatus @default(PAID)
+
+  bestViewRevenueShare BestViewRevenueShare?
+}
+
+model BestViewRevenueShare {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseId String   @unique
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+
+  questionId String
+  answerId   String
+  buyerId    String
+
+  questionOwnerId String
+  answerOwnerId   String
+
+  grossAmount         Int
+  questionOwnerAmount Int
+  answerOwnerAmount   Int
+  platformFeeAmount   Int
+
+  currency String @default("jpy")
+  status   String @default("pending")
+
+  payouts BestViewPayout[]
+}
+
+model BestViewPayout {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  revenueShareId String
+  revenueShare   BestViewRevenueShare @relation(fields: [revenueShareId], references: [id])
+
+  recipientUserId String
+  recipientUser   User   @relation("BestViewPayoutRecipientUser", fields: [recipientUserId], references: [id])
+
+  recipientType String
+
+  amount   Int
+  currency String @default("jpy")
+
+  status String @default("pending")
+
+  stripeAccountId  String?
+  stripeTransferId String?   @unique
+  transferredAt    DateTime?
+  failureReason    String?
+
+  @@unique([revenueShareId, recipientType])
 }
 
 model Notification {
@@ -227,8 +296,25 @@ model Notification {
   type      String
   message   String
   url       String?
+  data      Json?
   createdAt DateTime  @default(now())
   readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  emailOnAnswerCreated           Boolean @default(true)
+  emailOnCommentCreated          Boolean @default(true)
+  emailOnBestSelected            Boolean @default(true)
+  emailOnNegotiationCreated      Boolean @default(true)
+  emailOnNegotiationAccepted     Boolean @default(true)
+  emailOnCategoryQuestionCreated Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -236,12 +322,27 @@ model Notification {
 model Payout {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user   User   @relation(fields: [userId], references: [id])
   userId String
 
-  amount Int
-  status String
+  questionId String?
+  question   Question? @relation(fields: [questionId], references: [id])
+
+  answerId String? @unique
+  answer   Answer? @relation(fields: [answerId], references: [id])
+
+  grossAmount       Int?
+  platformFeeAmount Int?
+  netAmount         Int?
+  amount            Int
+  currency          String    @default("jpy")
+  status            String
+  stripeAccountId   String?
+  stripeTransferId  String?   @unique
+  transferredAt     DateTime?
+  failureReason     String?
 }
 
 model EventLog {

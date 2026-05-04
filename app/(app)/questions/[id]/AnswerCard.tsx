@@ -1,19 +1,25 @@
 // app/questions/[id]/AnswerCard.tsx
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import ImageLightbox from "./ImageLightbox";
 import { StarIcon } from "@heroicons/react/24/solid";
 import ReactMarkdown from "react-markdown";
 import type { AnswerComment, QuestionAnswer } from "./types";
+import { getPublicUserDisplayName } from "@/lib/public-user-display";
+import { toJapaneseErrorMessage } from "@/lib/errors";
 
 type AnswerCardProps = {
   ans: QuestionAnswer;
   isBest: boolean;
-  isAuthor: boolean;
+  hasBestAnswer: boolean;
+  isQuestionOwner: boolean;
   markRead: (answerId: string) => Promise<boolean | null>;
   onQuote?: () => void;
   currentUserId: string | null;
+  questionRewardAmount: number;
+  viewerPrice: number | null;
 };
 
 type CommentApiResponse = AnswerComment;
@@ -21,10 +27,13 @@ type CommentApiResponse = AnswerComment;
 export default function AnswerCard({
   ans,
   isBest,
-  isAuthor,
+  hasBestAnswer,
+  isQuestionOwner,
   markRead,
   onQuote,
   currentUserId,
+  questionRewardAmount,
+  viewerPrice,
 }: AnswerCardProps) {
   const [likes, setLikes] = useState(ans.likeCount || 0);
   const [isLoading, setIsLoading] = useState(false);
@@ -32,21 +41,51 @@ export default function AnswerCard({
   const [comments, setComments] = useState<AnswerComment[]>(ans.comments ?? []);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
+  const [bestCheckoutLoading, setBestCheckoutLoading] = useState(false);
 
-  const authorName = useMemo(() => {
-    return ans.user?.name || "匿名ユーザー";
-  }, [ans.user]);
+  const authorName = useMemo(
+    () => getPublicUserDisplayName(ans.user, ans.userId),
+    [ans.user, ans.userId]
+  );
 
   const canQuote =
     !!onQuote && !!currentUserId && ans.userId !== currentUserId && !ans.locked;
+  const isAnswerOwner = !!currentUserId && ans.userId === currentUserId;
+  const canViewComments = isQuestionOwner || isAnswerOwner;
+  const canPostComment = canViewComments;
+  const canManageNegotiation = isQuestionOwner;
+  const canViewAcceptedNegotiationAnswer = isQuestionOwner || isAnswerOwner;
+  const isLockedBest = isBest && ans.locked;
+  const canViewBestContent = isBest && !ans.locked;
 
-  const images = ans.images;
+  const images = ans.images.filter(
+    (image) => typeof image.url === "string" && image.url.length > 0
+  );
   const negotiation = ans.negotiation;
 
   const status = negotiation?.status;
   const isPending = status === "PENDING";
   const isRejected = status === "REJECTED";
   const isAccepted = status === "ACCEPTED";
+  const proposedAmount = negotiation ? Number(negotiation.proposedAmount) : null;
+  const chargedAmount =
+    proposedAmount !== null ? proposedAmount - questionRewardAmount : null;
+  const shouldShowNegotiationManagement =
+    !!negotiation && isPending && canManageNegotiation;
+  const shouldShowPendingNegotiationNotice =
+    !!negotiation && isPending && !canManageNegotiation && !canViewBestContent;
+  const shouldShowRejectedNegotiationNotice =
+    !!negotiation && isRejected && !canViewBestContent;
+  const shouldShowAcceptedNegotiationContent =
+    !!negotiation &&
+    isAccepted &&
+    canViewAcceptedNegotiationAnswer &&
+    !canViewBestContent;
+  const shouldShowAcceptedNegotiationNotice =
+    !!negotiation &&
+    isAccepted &&
+    !canViewAcceptedNegotiationAnswer &&
+    !canViewBestContent;
 
   void markRead;
 
@@ -61,12 +100,15 @@ export default function AnswerCard({
         }),
       });
 
-      const data = (await res.json()) as { success?: boolean };
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+      };
       if (data.success) window.location.reload();
-      else alert("BEST設定に失敗しました");
+      else alert(toJapaneseErrorMessage(data, "BEST設定に失敗しました"));
     } catch (error) {
       console.error(error);
-      alert("通信エラーが発生しました");
+      alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     }
   };
 
@@ -105,7 +147,8 @@ export default function AnswerCard({
       });
 
       if (!res.ok) {
-        alert("コメント投稿に失敗しました");
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(toJapaneseErrorMessage(data, "コメント投稿に失敗しました"));
         return;
       }
 
@@ -135,14 +178,14 @@ export default function AnswerCard({
 
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
-        alert(err.error || "見送りに失敗しました");
+        alert(toJapaneseErrorMessage(err, "見送りに失敗しました"));
         return;
       }
 
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert("通信エラーが発生しました");
+      alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     }
   };
 
@@ -164,7 +207,7 @@ export default function AnswerCard({
       const data = (await res.json()) as { error?: string; url?: string };
 
       if (!res.ok) {
-        alert(data.error || "決済セッション作成に失敗しました");
+        alert(toJapaneseErrorMessage(data, "決済セッション作成に失敗しました"));
         return;
       }
 
@@ -176,9 +219,81 @@ export default function AnswerCard({
       window.location.href = data.url;
     } catch (error) {
       console.error(error);
-      alert("通信エラーが発生しました");
+      alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     }
   };
+
+  const handleBestViewCheckout = async () => {
+    if (!viewerPrice || viewerPrice <= 0) {
+      alert("この質問はBEST閲覧価格が未設定のため、購入を開始できません。");
+      return;
+    }
+
+    if (bestCheckoutLoading) return;
+    setBestCheckoutLoading(true);
+
+    try {
+      const res = await fetch("/api/best/view/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answerId: ans.id }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        url?: string;
+      };
+
+      if (!res.ok) {
+        alert(toJapaneseErrorMessage(data, "決済セッション作成に失敗しました"));
+        return;
+      }
+
+      if (!data.url) {
+        alert("決済URLが取得できませんでした");
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      console.error(error);
+      alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
+    } finally {
+      setBestCheckoutLoading(false);
+    }
+  };
+
+  const renderAnswerBody = () => (
+    <>
+      <div
+        className="
+          prose prose-sm max-w-none text-gray-800
+          prose-p:leading-relaxed
+          prose-headings:mt-4 prose-headings:mb-2
+          prose-ul:my-2 prose-ol:my-2
+          prose-pre:bg-gray-900 prose-pre:text-gray-100
+          prose-pre:rounded
+          prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+        "
+      >
+        <ReactMarkdown>{ans.content ?? ""}</ReactMarkdown>
+      </div>
+
+      {images.length > 0 && (
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {images.map((img, index) => (
+            <img
+              key={img.id}
+              src={img.url}
+              onClick={() => setLightboxIndex(index)}
+              className="w-full aspect-square object-cover rounded cursor-pointer hover:opacity-80 transition border"
+              alt={`answer image ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div
@@ -198,7 +313,7 @@ export default function AnswerCard({
       <div className="flex justify-between mb-3 items-center">
         <span className="text-sm text-gray-700">{authorName}</span>
 
-        {isAuthor &&
+        {isQuestionOwner &&
           (ans.reads?.length > 0 ? (
             <span className="text-xs text-blue-500 font-semibold">既読</span>
           ) : (
@@ -210,119 +325,131 @@ export default function AnswerCard({
         </span>
       </div>
 
-      {ans.locked ? (
+      {isLockedBest ? (
         <div className="mt-3 p-4 rounded-lg border border-gray-300 bg-gray-50 text-sm text-gray-700">
-          This answer is a BEST answer. Viewing requires payment.
-        </div>
-      ) : negotiation && isPending ? (
-        <div className="mt-3 p-4 rounded-lg border border-purple-200 bg-purple-50">
-          <div className="font-semibold text-purple-800 mb-2">
-            回答提案（交渉カード）
-          </div>
-
-          <div className="text-sm text-gray-700 whitespace-pre-line">
-            {ans.pitch || "（交渉用説明文がありません）"}
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <div className="px-3 py-1 rounded-full bg-purple-100 text-purple-900 font-bold">
-              提案額：{Number(negotiation.proposedAmount).toLocaleString("ja-JP")} 円
-            </div>
-
+          <p className="mb-3">このBEST回答はロックされています。閲覧には購入が必要です。</p>
+          {viewerPrice && viewerPrice > 0 ? (
+            <p className="mb-3 font-semibold text-gray-900">
+              閲覧価格：{viewerPrice.toLocaleString("ja-JP")}円
+            </p>
+          ) : (
+            <p className="mb-3 text-red-600">
+              この質問はBEST閲覧価格が未設定のため、現在は購入できません。
+            </p>
+          )}
+          {currentUserId ? (
             <button
               type="button"
-              onClick={handleAcceptNegotiation}
-              className="px-4 py-2 rounded bg-purple-700 text-white hover:bg-purple-800"
+              onClick={handleBestViewCheckout}
+              disabled={bestCheckoutLoading || !viewerPrice || viewerPrice <= 0}
+              className="px-4 py-2 rounded bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50"
             >
-              この金額で続きを読む
+              {bestCheckoutLoading
+                ? "決済ページへ移動中..."
+                : viewerPrice && viewerPrice > 0
+                  ? `${viewerPrice.toLocaleString("ja-JP")}円でBEST回答を閲覧する`
+                  : "BEST回答を閲覧する"}
             </button>
-
-            <button
-              type="button"
-              onClick={handleRejectNegotiation}
-              className="px-4 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50"
+          ) : (
+            <Link
+              href={`/login?redirectTo=${encodeURIComponent(`/questions/${ans.questionId}`)}`}
+              className="inline-block px-4 py-2 rounded border border-gray-300 bg-white hover:bg-gray-100"
             >
-              今回は見送る
-            </button>
-          </div>
-
-          <div className="mt-2 text-xs text-gray-500">
-            ※ 本回答は決済完了後に公開されます
-          </div>
+              ログインして購入する
+            </Link>
+          )}
         </div>
-      ) : negotiation && isRejected ? (
-        <div className="mt-3 p-3 rounded border bg-gray-50 text-sm text-gray-600">
-          この回答提案は見送り済みです。
-        </div>
-      ) : negotiation && isAccepted ? (
-        isAuthor ? (
-          <>
-            <div className="mt-3 p-3 rounded border bg-green-50 text-sm text-green-700">
-              購入済み（解凍済み）です。
-            </div>
-
-            <div
-              className="
-                mt-3
-                prose prose-sm max-w-none text-gray-800
-                prose-p:leading-relaxed
-                prose-headings:mt-4 prose-headings:mb-2
-                prose-ul:my-2 prose-ol:my-2
-                prose-pre:bg-gray-900 prose-pre:text-gray-100
-                prose-pre:rounded
-                prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-              "
-            >
-              <ReactMarkdown>{ans.content ?? ""}</ReactMarkdown>
-            </div>
-
-            {images.length > 0 && (
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {images.map((img, index) => (
-                  <img
-                    key={img.id}
-                    src={img.url}
-                    onClick={() => setLightboxIndex(index)}
-                    className="w-full aspect-square object-cover rounded cursor-pointer hover:opacity-80 transition border"
-                    alt="answer image"
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="mt-3 p-3 rounded border bg-green-50 text-sm text-green-700">
-            この回答提案は承諾済みです（購入済み）。
-          </div>
-        )
       ) : (
         <>
-          <div
-            className="
-              prose prose-sm max-w-none text-gray-800
-              prose-p:leading-relaxed
-              prose-headings:mt-4 prose-headings:mb-2
-              prose-ul:my-2 prose-ol:my-2
-              prose-pre:bg-gray-900 prose-pre:text-gray-100
-              prose-pre:rounded
-              prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-            "
-          >
-            <ReactMarkdown>{ans.content ?? ""}</ReactMarkdown>
-          </div>
+          {shouldShowNegotiationManagement && (
+            <div className="mt-3 p-4 rounded-lg border border-purple-200 bg-purple-50">
+              <div className="font-semibold text-purple-800 mb-2">
+                回答提案（交渉カード）
+              </div>
 
-          {images.length > 0 && (
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {images.map((img, index) => (
-                <img
-                  key={img.id}
-                  src={img.url}
-                  onClick={() => setLightboxIndex(index)}
-                  className="w-full aspect-square object-cover rounded cursor-pointer hover:opacity-80 transition border"
-                  alt="answer image"
-                />
-              ))}
+              <div className="text-sm text-gray-700 whitespace-pre-line">
+                {ans.pitch || "（交渉用説明文がありません）"}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="px-3 py-1 rounded-full bg-purple-100 text-purple-900 font-bold">
+                  提案額：{Number(negotiation.proposedAmount).toLocaleString("ja-JP")} 円
+                </div>
+
+                <div className="px-3 py-1 rounded-full bg-white text-purple-900 font-bold border border-purple-200">
+                  追加支払い：
+                  {chargedAmount !== null
+                    ? `${chargedAmount.toLocaleString("ja-JP")} 円`
+                    : "-"}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAcceptNegotiation}
+                  disabled={chargedAmount === null || chargedAmount <= 0}
+                  className="px-4 py-2 rounded bg-purple-700 text-white hover:bg-purple-800 disabled:opacity-50"
+                >
+                  {chargedAmount !== null && chargedAmount > 0
+                    ? `追加で${chargedAmount.toLocaleString("ja-JP")}円支払う`
+                    : "追加決済は不要です"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRejectNegotiation}
+                  className="px-4 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50"
+                >
+                  今回は見送る
+                </button>
+              </div>
+
+              <div className="mt-2 text-xs text-gray-500">
+                {chargedAmount !== null && chargedAmount > 0
+                  ? `※ 元の報酬額 ${questionRewardAmount.toLocaleString("ja-JP")}円 は支払い済みです。差額のみ追加決済されます`
+                  : "※ 提案額が元の報酬額以下のため、追加決済はできません"}
+              </div>
             </div>
+          )}
+
+          {canViewBestContent ? (
+            renderAnswerBody()
+          ) : shouldShowPendingNegotiationNotice ? (
+            <div className="mt-3 p-4 rounded-lg border border-purple-200 bg-purple-50">
+              <div className="font-semibold text-purple-800 mb-2">
+                回答提案（交渉カード）
+              </div>
+
+              <div className="text-sm text-gray-700 whitespace-pre-line">
+                {ans.pitch || "（交渉用説明文がありません）"}
+              </div>
+
+              {isAnswerOwner ? (
+                <div className="mt-3 text-sm text-purple-900">
+                  交渉状態：質問オーナーの承認待ちです。
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-purple-900">
+                  交渉中の回答です。
+                </div>
+              )}
+            </div>
+          ) : shouldShowRejectedNegotiationNotice ? (
+            <div className="mt-3 p-3 rounded border bg-gray-50 text-sm text-gray-600">
+              この回答提案は見送り済みです。
+            </div>
+          ) : shouldShowAcceptedNegotiationContent ? (
+            <>
+              <div className="mt-3 p-3 rounded border bg-green-50 text-sm text-green-700">
+                購入済み（回答済み）です。
+              </div>
+              {renderAnswerBody()}
+            </>
+          ) : shouldShowAcceptedNegotiationNotice ? (
+            <div className="mt-3 p-3 rounded border bg-green-50 text-sm text-green-700">
+              この回答提案は承諾済みです（購入済み）。
+            </div>
+          ) : (
+            renderAnswerBody()
           )}
         </>
       )}
@@ -348,15 +475,28 @@ export default function AnswerCard({
         )}
       </div>
 
-      {!isBest && (
+      {isQuestionOwner && isBest && (
+        <div className="mt-4">
+          <button
+            type="button"
+            disabled
+            className="inline-flex cursor-default items-center gap-2 rounded-full border border-yellow-300 bg-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-900"
+          >
+            <StarIcon className="h-5 w-5" />
+            BEST回答
+          </button>
+        </div>
+      )}
+
+      {isQuestionOwner && !isBest && !hasBestAnswer && (
         <div className="mt-4">
           <button
             type="button"
             onClick={handleBest}
-            className="flex items-center gap-1 text-gray-600 hover:text-yellow-500 transition transform hover:scale-110"
+            className="inline-flex items-center gap-2 rounded-full border border-yellow-500 bg-gradient-to-r from-yellow-400 to-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
           >
-            <StarIcon className="w-5 h-5" />
-            <span className="text-sm">BEST にする</span>
+            <StarIcon className="h-5 w-5" />
+            <span>BEST回答に選ぶ</span>
           </button>
         </div>
       )}
@@ -373,13 +513,13 @@ export default function AnswerCard({
         />
       )}
 
-      {!ans.locked && (
+      {!ans.locked && canViewComments && (
         <>
           <div className="mt-4 space-y-3">
             {comments.map((comment) => (
               <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
                 <span className="font-semibold">
-                  {comment.user?.name || "匿名ユーザー"}
+                  {getPublicUserDisplayName(comment.user, comment.user?.id)}
                 </span>
                 <span className="text-gray-600 ml-2">{comment.content}</span>
                 <span className="text-xs text-gray-400 ml-2">
@@ -389,23 +529,30 @@ export default function AnswerCard({
             ))}
           </div>
 
-          <form onSubmit={handleAddComment} className="mt-3 flex gap-2">
-            <input
-              type="text"
-              name="comment"
-              placeholder="コメントを書く..."
-              className="w-full border rounded px-2 py-1 text-sm"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-            />
-            <button
-              type="submit"
-              disabled={commentLoading}
-              className="px-3 py-1 rounded bg-gray-900 text-white text-sm disabled:opacity-50"
-            >
-              {commentLoading ? "送信中" : "送信"}
-            </button>
-          </form>
+          {canPostComment && (
+            <>
+              <p className="mt-3 text-xs text-gray-500">
+                ※コメントは質問者と回答者のみ投稿できます
+              </p>
+              <form onSubmit={handleAddComment} className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  name="comment"
+                  placeholder="コメントを書く..."
+                  className="w-full border rounded px-2 py-1 text-sm"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={commentLoading}
+                  className="px-3 py-1 rounded bg-gray-900 text-white text-sm disabled:opacity-50"
+                >
+                  {commentLoading ? "送信中" : "送信"}
+                </button>
+              </form>
+            </>
+          )}
         </>
       )}
     </div>

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNotifications } from "@/app/context/NotificationContext";
+import { toJapaneseErrorMessage } from "@/lib/errors";
 
 type UnifiedItem = {
   id: string;
@@ -13,11 +15,21 @@ type UnifiedItem = {
   isUnread: boolean;
 };
 
-export default function NotificationList({ items }: { items: UnifiedItem[] }) {
+export default function NotificationList({
+  items,
+  unreadCount,
+}: {
+  items: UnifiedItem[];
+  unreadCount: number;
+}) {
   const router = useRouter();
   const { refresh } = useNotifications();
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleClick = async (n: UnifiedItem) => {
+    setErrorMsg("");
+
     // ✅ UNREAD_ANSWER は「ここでは既読にしない」
     if (n.kind === "UNREAD_ANSWER") {
       if (n.href) router.push(n.href); // /questions/[id]?from=notification
@@ -25,33 +37,67 @@ export default function NotificationList({ items }: { items: UnifiedItem[] }) {
     }
 
     // それ以外（Notification）は今まで通り
-    await fetch(`/api/notifications/${n.id}/read`, { method: "POST" });
+    const res = await fetch(`/api/notifications/${n.id}/read`, { method: "POST" });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setErrorMsg(toJapaneseErrorMessage(data));
+      return;
+    }
+
     await refresh();
     if (n.href) router.push(n.href);
   };
-  
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString();
+
+  const handleReadAll = async () => {
+    if (markingAllRead) return;
+
+    setMarkingAllRead(true);
+    setErrorMsg("");
+
+    try {
+      const res = await fetch("/api/notifications/read-all", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setErrorMsg(toJapaneseErrorMessage(data));
+        return;
+      }
+
+      await refresh();
+      router.refresh();
+    } catch (error) {
+      setErrorMsg(toJapaneseErrorMessage(error));
+    } finally {
+      setMarkingAllRead(false);
+    }
   };
 
   const icon = (kind: UnifiedItem["kind"]) => {
     return kind === "UNREAD_ANSWER" ? "💬" : "🔔";
   };
 
-  const formatRelativeTime = (iso: string) => {
-    const now = Date.now();
-    const diff = Math.floor((now - new Date(iso).getTime()) / 1000);
-
-    if (diff < 60) return `${diff}秒前`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}分前`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}時間前`;
-    return `${Math.floor(diff / 86400)}日前`;
-  };
-
-
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-gray-500">
+          未読 {unreadCount.toLocaleString("ja-JP")} 件
+        </p>
+        {unreadCount > 0 && (
+          <button
+            type="button"
+            onClick={handleReadAll}
+            disabled={markingAllRead}
+            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {markingAllRead ? "既読にしています..." : "すべて既読にする"}
+          </button>
+        )}
+      </div>
+
+      {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
+
       {items.map((n) => (
         <button
           key={`${n.kind}:${n.id}`}
@@ -73,7 +119,7 @@ export default function NotificationList({ items }: { items: UnifiedItem[] }) {
               )}
 
               <div className="text-xs text-gray-400 mt-2">
-                {formatRelativeTime(n.createdAt)}
+                {new Date(n.createdAt).toLocaleString("ja-JP")}
               </div>
 
             </div>

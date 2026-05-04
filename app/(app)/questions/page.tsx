@@ -4,13 +4,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type QuestionListItem = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  rewardAmount: number;
+  isPaid: boolean;
+  category?: {
+    name?: string | null;
+  } | null;
+  answers?: Array<unknown>;
+};
+
 function highlight(text: string, keyword: string) {
   if (!keyword) return text;
   const regex = new RegExp(`(${keyword})`, "gi");
   return text.replace(regex, "<mark class='bg-yellow-200'>$1</mark>");
 }
 
-function extractPopularTags(questions: any[]) {
+function extractPopularTags(questions: QuestionListItem[]) {
   const wordCount: Record<string, number> = {};
   const stopWords = [
     "です",
@@ -54,24 +67,24 @@ function extractPopularTags(questions: any[]) {
 }
 
 export default function QuestionsPage() {
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [query, setQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [sort, setSort] = useState("new");
+  const initialParams =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
+
+  const [questions, setQuestions] = useState<QuestionListItem[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [query, setQuery] = useState(initialParams?.get("q") || "");
+  const [selectedCategory, setSelectedCategory] = useState(
+    initialParams?.get("category") || ""
+  );
+  const [sort, setSort] = useState(initialParams?.get("sort") || "new");
   const [popularTags, setPopularTags] = useState<string[]>([]);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-
-  // 📌 URLパラメータを初期値として読み込む
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setQuery(params.get("q") || "");
-    setSelectedCategory(params.get("category") || "");
-    setSort(params.get("sort") || "new");
-
-    const current = JSON.parse(localStorage.getItem("search-history") || "[]");
-    setSearchHistory(current);
-  }, []);
+  const [searchHistory, setSearchHistory] = useState<string[]>(
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("search-history") || "[]")
+      : []
+  );
 
   // 📌 APIから質問・カテゴリーを取得
   useEffect(() => {
@@ -229,9 +242,12 @@ export default function QuestionsPage() {
       </form>
 
       <div className="w-full flex justify-end mb-6">
-        <a href="/questions/new" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+        <Link
+          href="/questions/new"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+        >
           質問を投稿する
-        </a>
+        </Link>
       </div>
 
       {/* 💬 質問一覧 */}
@@ -252,10 +268,19 @@ export default function QuestionsPage() {
             <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded">
               {q.category?.name}
             </span>
+            {!q.isPaid && (
+              <span className="inline-block mt-2 ml-2 px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded">
+                🔒 未公開（決済待ち）
+              </span>
+            )}
 
             <p className="text-xs text-gray-500 mt-1">投稿日：{new Date(q.createdAt).toLocaleString()}</p>
 
-            <p className="mt-2 text-sm text-gray-700 line-clamp-2">{q.content.slice(0, 100)}</p>
+            <p className="mt-2 text-sm text-gray-700 line-clamp-2">
+              {q.isPaid
+                ? q.content.slice(0, 100)
+                : "この質問は質問者の決済完了後に公開されます。"}
+            </p>
           </Link>
         ))}
       </div>

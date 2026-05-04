@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import type { QuestionAnswer } from "@/app/(app)/questions/[id]/types";
+import { validateViewerPrice } from "@/lib/viewer-price";
 
 export async function GET(
   _req: Request,
@@ -48,12 +49,25 @@ export async function GET(
       );
     }
 
-    const hasPurchasedBestAnswer = false;
-    const canViewBestAnswer = isAuthor || hasPurchasedBestAnswer;
-
+    const hasPurchasedBestAnswer =
+      !!authUser
+        ? (await prisma.purchase.findFirst({
+            where: {
+              userId: authUser.id,
+              questionId: question.id,
+              status: "PAID",
+            },
+            select: { id: true },
+          })) !== null
+        : false;
     const answersWithLock: QuestionAnswer[] = question.answers.map((answer) => {
-      const isLockedBest =
-        answer.id === question.bestAnswerId && !canViewBestAnswer;
+      const isBestAnswer = answer.id === question.bestAnswerId;
+      const canViewThisAnswer =
+        !isBestAnswer ||
+        isAuthor ||
+        (!!authUser && answer.userId === authUser.id) ||
+        hasPurchasedBestAnswer;
+      const isLockedBest = isBestAnswer && !canViewThisAnswer;
 
       if (isLockedBest) {
         return {
@@ -81,6 +95,57 @@ export async function GET(
     });
   } catch (error) {
     console.error("❌ GET /questions/[id] Error:", error);
+    return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const authUser = await getCurrentUser();
+    if (!authUser) {
+      return NextResponse.json({ error: "ログインしてください" }, { status: 401 });
+    }
+
+    const question = await prisma.question.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+
+    if (!question) {
+      return NextResponse.json(
+        { error: "質問が見つかりません" },
+        { status: 404 }
+      );
+    }
+
+    if (question.userId !== authUser.id) {
+      return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const viewerPriceValidation = validateViewerPrice(body.viewerPrice);
+
+    if (!viewerPriceValidation.ok) {
+      return NextResponse.json(
+        { error: viewerPriceValidation.message },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.question.update({
+      where: { id },
+      data: { viewerPrice: viewerPriceValidation.value },
+      select: { id: true, viewerPrice: true },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("❌ PATCH /questions/[id] Error:", error);
     return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
   }
 }

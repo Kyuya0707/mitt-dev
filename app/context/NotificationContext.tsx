@@ -16,7 +16,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const refresh = async () => {
     try {
-      const res = await fetch("/api/unread-count", { cache: "no-store" });
+      const res = await fetch("/api/notifications/count", { cache: "no-store" });
       const data = await res.json();
       setCount(data.count ?? 0);
     } catch (err) {
@@ -25,13 +25,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   useEffect(() => {
-    // 初回
-    refresh();
+    void Promise.resolve().then(refresh);
 
     // ログイン/ログアウトで即更新
     const supabase = supabaseBrowser();
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      refresh();
+      void refresh();
     });
 
     return () => {

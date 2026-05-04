@@ -1,20 +1,14 @@
 // app/mypage/purchases/page.tsx
-import { PrismaClient } from "@prisma/client";
-import { createClientBrowser } from "@/lib/supabase-browser";
+import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import Link from "next/link";
-
-const prisma = new PrismaClient();
 
 export default async function PurchaseHistoryPage({
   searchParams,
 }: {
   searchParams: { page?: string };
 }) {
-  const supabase = createClientBrowser();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   // ログインしてない → ログインへ誘導
   if (!user) {
@@ -67,6 +61,12 @@ export default async function PurchaseHistoryPage({
               key={p.id}
               className="p-5 bg-white border border-purple-200 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-200"
             >
+              <div className="mb-3">
+                <span className="inline-flex items-center px-2 py-1 rounded-full bg-yellow-100 text-yellow-900 text-xs font-semibold">
+                  BEST回答閲覧購入
+                </span>
+              </div>
+
               {/* タイトル行 */}
               <Link
                 href={`/questions/${p.questionId}`}
@@ -79,12 +79,23 @@ export default async function PurchaseHistoryPage({
               {/* 情報行 */}
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
                 <div className="bg-purple-50 border border-purple-100 px-3 py-1 rounded-lg">
-                  <span className="font-semibold">購入日時：</span>
-                  {new Date(p.createdAt).toLocaleString("ja-JP")}
+                  <span className="font-semibold">金額：</span>
+                  {p.amount.toLocaleString()} 円
                 </div>
 
-                <div className="bg-purple-100 text-purple-900 font-bold px-3 py-1 rounded-full shadow-inner">
-                  {p.amount.toLocaleString()} 円
+                <div className="bg-purple-50 border border-purple-100 px-3 py-1 rounded-lg">
+                  <span className="font-semibold">通貨：</span>
+                  {p.currency.toUpperCase()}
+                </div>
+
+                <div className="bg-purple-50 border border-purple-100 px-3 py-1 rounded-lg">
+                  <span className="font-semibold">ステータス：</span>
+                  {p.status}
+                </div>
+
+                <div className="bg-purple-50 border border-purple-100 px-3 py-1 rounded-lg">
+                  <span className="font-semibold">購入日時：</span>
+                  {new Date(p.createdAt).toLocaleString("ja-JP")}
                 </div>
               </div>
             </div>

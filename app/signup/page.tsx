@@ -4,17 +4,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClientBrowser } from "@/lib/supabase-browser";
+import { CATEGORY_NAMES } from "@/lib/category-options";
+import { validateUsername } from "@/lib/username";
 
-const INTEREST_OPTIONS = [
-  "車・バイク",
-  "恋愛",
-  "投資・お金",
-  "健康・ダイエット",
-  "仕事・キャリア",
-  "プログラミング",
-  "ガジェット",
-  "美容",
-];
+const INTEREST_OPTIONS = [...CATEGORY_NAMES];
 
 const PREFECTURES = [
   "未選択",
@@ -148,7 +141,7 @@ export default function SignupPage() {
   const [ppOpen, setPpOpen] = useState(false);
 
   // 画像選択
-  const handleImageSelect = (e: any) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarFile(file);
@@ -165,10 +158,34 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.ok) {
+      setErrorMsg(usernameValidation.message);
+      return;
+    }
     
     // ✅ PP同意必須
     if (!ppAgreed) {
       setErrorMsg("プライバシーポリシーに同意してください。");
+      return;
+    }
+
+    const usernameCheckRes = await fetch(
+      `/api/user/username?username=${encodeURIComponent(usernameValidation.value)}`
+    );
+    const usernameCheckData = (await usernameCheckRes.json().catch(() => ({}))) as {
+      available?: boolean;
+      error?: string;
+    };
+
+    if (!usernameCheckRes.ok) {
+      setErrorMsg(usernameCheckData.error || "ユーザー名の確認に失敗しました。");
+      return;
+    }
+
+    if (!usernameCheckData.available) {
+      setErrorMsg("このユーザー名はすでに使用されています。");
       return;
     }
 
@@ -206,12 +223,14 @@ export default function SignupPage() {
         emailRedirectTo: `${redirectBase}/auth/callback`,
         data: {
           full_name: fullName,
-          username,
+          username: usernameValidation.value,
           bio,
           website,
           prefecture,
           interests,
           avatar_url: avatarUrl,
+          pp_consent_at: new Date().toISOString(),
+          pp_consent_version: PP_CONSENT_VERSION,
         },
       },
     });
@@ -221,22 +240,7 @@ export default function SignupPage() {
       return;
     }
 
-    // ✅ 同意日時・同意バージョン
-    const consentAt = new Date().toISOString();
-
-    // 3) PrismaのUser同期 + 同意情報保存（ここが本題）
-    if (signUpData?.user) {
-      await fetch("/api/user/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: signUpData.user.id,
-          email: signUpData.user.email,
-          ppConsentAt: consentAt,
-          ppConsentVersion: PP_CONSENT_VERSION,
-        }),
-      });
-    }
+    void signUpData;
 
     alert("登録完了！認証メールを確認してください。");
     router.push("/login");
@@ -251,7 +255,11 @@ export default function SignupPage() {
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 mb-2">
             {avatarPreview ? (
-              <img src={avatarPreview} className="w-full h-full object-cover" />
+              <img
+                src={avatarPreview}
+                className="w-full h-full object-cover"
+                alt="プロフィール画像プレビュー"
+              />
             ) : (
               <span className="text-gray-500 flex items-center justify-center h-full">
                 No Image
@@ -299,8 +307,13 @@ export default function SignupPage() {
             className="w-full border p-2 rounded text-black"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            minLength={3}
+            maxLength={20}
             required
           />
+          <p className="mt-1 text-xs text-gray-500">
+            3〜20文字で設定できます。日本語も使えます
+          </p>
         </div>
 
         {/* メール */}

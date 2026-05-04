@@ -11,7 +11,10 @@ export async function POST(
 
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+      return NextResponse.json(
+        { error: "ログインが必要です" },
+        { status: 401 }
+      );
     }
 
     const notification = await prisma.notification.findUnique({
@@ -21,7 +24,10 @@ export async function POST(
 
     // ✅ 存在しない or 他人の通知は 404（情報漏えいを抑える）
     if (!notification || notification.userId !== user.id) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "データが見つかりません" },
+        { status: 404 }
+      );
     }
 
     // ✅ すでに既読ならそのまま成功（冪等）
@@ -37,6 +43,9 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error("Notification read error:", e);
-    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "予期しないエラーが発生しました" },
+      { status: 500 }
+    );
   }
 }

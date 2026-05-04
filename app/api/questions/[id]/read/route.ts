@@ -11,7 +11,10 @@ export async function POST(
 
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+      return NextResponse.json(
+        { error: "ログインが必要です" },
+        { status: 401 }
+      );
     }
 
     // ✅ 質問者本人だけ許可
@@ -21,7 +24,10 @@ export async function POST(
     });
 
     if (!q || q.userId !== user.id) {
-      return NextResponse.json({ error: "Not allowed" }, { status: 403 });
+      return NextResponse.json(
+        { error: "権限がありません" },
+        { status: 403 }
+      );
     }
 
     const answers = await prisma.answer.findMany({
@@ -44,6 +50,9 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error("question read error:", e);
-    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "予期しないエラーが発生しました" },
+      { status: 500 }
+    );
   }
 }

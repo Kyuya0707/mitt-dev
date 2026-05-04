@@ -1,60 +1,80 @@
 // app/api/user/sync/route.ts
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
-const dbUrl = process.env.DATABASE_URL || "";
-const directUrl = process.env.DIRECT_URL || "";
-
-const safeHost = (url: string) => {
-  try {
-    const u = new URL(url);
-    return `${u.hostname}:${u.port || "(no-port)"}`;
-  } catch {
-    return "(invalid url)";
-  }
-};
-
-console.log("[DB URL host]", safeHost(dbUrl));
-console.log("[DIRECT_URL host]", safeHost(directUrl));
-
+import { getCurrentUser } from "@/lib/auth";
+import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
+import { validateUsername } from "@/lib/username";
 
 export async function POST(req: Request) {
   try {
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "ログインしてください" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
 
-    const id = body.id as string | undefined;
-    const email = body.email as string | undefined;
+    const requestedId = body.id as string | undefined;
+    const username = body.username as string | undefined;
+    const name = body.name as string | undefined;
+    const interests = Array.isArray(body.interests)
+      ? body.interests.filter(
+          (value: unknown): value is string => typeof value === "string"
+        )
+      : [];
 
     // ✅ PP同意（今回追加）
     const ppConsentAtRaw = body.ppConsentAt as string | undefined; // ISO文字列で受ける
     const ppConsentVersion = body.ppConsentVersion as string | undefined;
 
-    if (!id || !email) {
-      return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+    if (requestedId && requestedId !== currentUser.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // ppConsentAt を Date に変換（未指定なら null）
     const ppConsentAt = ppConsentAtRaw ? new Date(ppConsentAtRaw) : null;
 
-    await prisma.user.upsert({
-      where: { id },
-      update: {
-        email, // ← ★ これが必須
-        ...(ppConsentAt ? { ppConsentAt } : {}),
-        ...(ppConsentVersion ? { ppConsentVersion } : {}),
-      },
-      create: {
-        id,
-        email,
-        ...(ppConsentAt ? { ppConsentAt } : {}),
-        ...(ppConsentVersion ? { ppConsentVersion } : {}),
-      },
+    if (username) {
+      const usernameValidation = validateUsername(username);
+
+      if (!usernameValidation.ok) {
+        return NextResponse.json(
+          { error: usernameValidation.message },
+          { status: 400 }
+        );
+      }
+    }
+
+    await ensurePrismaUser({
+      id: currentUser.id,
+      email: currentUser.email,
+      username,
+      name,
+      interests,
+      ppConsentAt,
+      ppConsentVersion,
     });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
+    const errorCode =
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      typeof err.code === "string"
+        ? err.code
+        : null;
+
+    if (errorCode === "USERNAME_TAKEN") {
+      return NextResponse.json(
+        { error: "このユーザー名はすでに使用されています。" },
+        { status: 409 }
+      );
+    }
+
     console.error("User Sync Error:", err);
     return NextResponse.json({ error: "Failed to sync" }, { status: 500 });
   }

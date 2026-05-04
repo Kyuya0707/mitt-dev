@@ -3,17 +3,10 @@
 import { useEffect, useState } from "react";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
+import { CATEGORY_NAMES } from "@/lib/category-options";
+import { validateUsername } from "@/lib/username";
 
-const INTEREST_OPTIONS = [
-  "車・バイク",
-  "恋愛",
-  "投資・お金",
-  "健康・ダイエット",
-  "仕事・キャリア",
-  "プログラミング",
-  "ガジェット",
-  "美容",
-];
+const INTEREST_OPTIONS = [...CATEGORY_NAMES];
 
 const PREFECTURES = [
   "未選択",
@@ -80,7 +73,7 @@ function generateSafeFileName(original: string) {
 }
 
 export default function ProfilePage() {
-  const supabase = createClientBrowser();
+  const [supabase] = useState(() => createClientBrowser());
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -94,11 +87,9 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
   // 現在のユーザーデータを取得
   useEffect(() => {
-
     const fetchProfile = async () => {
       const {
         data: { user },
@@ -123,7 +114,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, []);
+  }, [router, supabase]);
 
   // 興味カテゴリー切り替え
   const toggleInterest = (item: string) => {
@@ -133,7 +124,7 @@ export default function ProfilePage() {
   };
 
   // プロフィール画像選択
-  const handleImageSelect = (e: any) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -144,7 +135,30 @@ export default function ProfilePage() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-    setSuccessMsg("");
+
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.ok) {
+      setErrorMsg(usernameValidation.message);
+      return;
+    }
+
+    const usernameCheckRes = await fetch(
+      `/api/user/username?username=${encodeURIComponent(usernameValidation.value)}`
+    );
+    const usernameCheckData = (await usernameCheckRes.json().catch(() => ({}))) as {
+      available?: boolean;
+      error?: string;
+    };
+
+    if (!usernameCheckRes.ok) {
+      setErrorMsg(usernameCheckData.error || "ユーザー名の確認に失敗しました。");
+      return;
+    }
+
+    if (!usernameCheckData.available) {
+      setErrorMsg("このユーザー名はすでに使用されています。");
+      return;
+    }
 
     let newAvatarUrl = avatarPreview;
 
@@ -160,7 +174,6 @@ export default function ProfilePage() {
         });
 
       if (uploadError) {
-        console.log(uploadError);
         setErrorMsg("画像アップロードに失敗しました");
         return;
       }
@@ -175,7 +188,7 @@ export default function ProfilePage() {
     // ② Supabase user_metadata 更新
     const { error } = await supabase.auth.updateUser({
       data: {
-        username,
+        username: usernameValidation.value,
         bio,
         website,
         prefecture,
@@ -189,22 +202,34 @@ export default function ProfilePage() {
       return;
     }
 
-    // ③ 最新ユーザー情報を再取得して画面へ反映
     const {
-      data: { user: refreshedUser },
+      data: { user: syncedUser },
     } = await supabase.auth.getUser();
 
-    if (refreshedUser) {
-      const meta = refreshedUser.user_metadata;
-      setUsername(meta.username ?? "");
-      setBio(meta.bio ?? "");
-      setWebsite(meta.website ?? "");
-      setPrefecture(meta.prefecture ?? "未選択");
-      setInterests(meta.interests ?? []);
-      setAvatarPreview(meta.avatar_url ?? null);
+    if (syncedUser) {
+      const syncRes = await fetch("/api/user/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: syncedUser.id,
+          email: syncedUser.email,
+          username: usernameValidation.value,
+          name: syncedUser.user_metadata?.full_name ?? null,
+          interests,
+        }),
+      });
+
+      if (!syncRes.ok) {
+        const syncData = (await syncRes.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setErrorMsg(syncData.error || "ユーザー情報の同期に失敗しました。");
+        return;
+      }
     }
 
-    setSuccessMsg("プロフィールを更新しました！");
+    router.push("/mypage?updated=1");
+    router.refresh();
   };
 
   if (loading) return <p className="text-center mt-10">読み込み中...</p>;
@@ -218,7 +243,11 @@ export default function ProfilePage() {
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 mb-2">
             {avatarPreview ? (
-              <img src={avatarPreview} className="w-full h-full object-cover" />
+              <img
+                src={avatarPreview}
+                className="w-full h-full object-cover"
+                alt="プロフィール画像プレビュー"
+              />
             ) : (
               <span className="text-gray-500 flex items-center justify-center h-full">
                 No Image
@@ -244,8 +273,13 @@ export default function ProfilePage() {
             className="w-full border p-2 rounded text-black"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            minLength={3}
+            maxLength={20}
             required
           />
+          <p className="mt-1 text-xs text-gray-500">
+            3〜20文字で設定できます。日本語も使えます
+          </p>
         </div>
 
         {/* 自己紹介 */}
@@ -309,8 +343,6 @@ export default function ProfilePage() {
         </div>
 
         {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
-        {successMsg && <p className="text-green-600 text-sm">{successMsg}</p>}
-
         <button className="w-full bg-blue-600 text-white py-2 rounded font-semibold">
           更新する
         </button>

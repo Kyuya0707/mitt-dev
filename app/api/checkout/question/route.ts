@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs"; // Stripe/Prismaなので明示（Edge回避）
 
@@ -14,9 +15,21 @@ function getStripe() {
   return new Stripe(key);
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Stripe error";
+}
 
 export async function POST(req: Request) {
   try {
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "ログインしてください" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const questionId = body.questionId as string | undefined;
 
@@ -27,22 +40,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!baseUrl) {
-      return NextResponse.json(
-        { error: "NEXT_PUBLIC_SITE_URL is not set" },
-        { status: 500 }
-      );
-    }
+    const envBaseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const baseUrl =
+      envBaseUrl && envBaseUrl.length > 0 ? envBaseUrl : new URL(req.url).origin;
 
     // ✅ DBから rewardAmount を取得（改ざん防止）
     const q = await prisma.question.findUnique({
       where: { id: questionId },
-      select: { id: true, rewardAmount: true },
+      select: { id: true, rewardAmount: true, userId: true, isPaid: true },
     });
 
     if (!q) {
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    }
+
+    if (q.userId !== currentUser.id) {
+      return NextResponse.json(
+        { error: "この質問の決済を開始する権限がありません" },
+        { status: 403 }
+      );
+    }
+
+    if (q.isPaid) {
+      return NextResponse.json(
+        { error: "この質問はすでに決済済みです" },
+        { status: 400 }
+      );
     }
 
     const amount = q.rewardAmount;
@@ -69,18 +92,19 @@ export async function POST(req: Request) {
         },
       ],
       metadata: {
-        kind: "question",
+        kind: "question_post",
         questionId,
+        userId: currentUser.id,
       },
-      success_url: `${baseUrl}/questions/${questionId}?paid=1`,
+      success_url: `${baseUrl}/questions/${questionId}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/questions/${questionId}?cancel=1`,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("❌ /api/checkout/question error:", e);
     return NextResponse.json(
-      { error: e?.message ?? "Stripe error" },
+      { error: getErrorMessage(e) },
       { status: 500 }
     );
   }

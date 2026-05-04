@@ -1,12 +1,53 @@
-// middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-const TEASER_MODE = true; // 公開時は false にするだけ
+const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === "true";
+const MAINTENANCE_PATH = "/maintenance";
+const MAINTENANCE_BYPASS_COOKIE = "kv_maintenance_bypass";
+
+function isExcludedPath(pathname: string) {
+  return (
+    pathname === MAINTENANCE_PATH ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.startsWith("/images/") ||
+    pathname.startsWith("/public/")
+  );
+}
 
 export async function middleware(req: NextRequest) {
-  // --- 1) まず Supabase セッションを同期（ここが重要） ---
-  let res = NextResponse.next();
+  const { pathname } = req.nextUrl;
+
+  if (!MAINTENANCE_MODE && pathname === "/coming-soon") {
+    const returnTo = req.nextUrl.searchParams.get("from");
+
+    if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
+      const url = req.nextUrl.clone();
+      url.pathname = returnTo;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (isExcludedPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (MAINTENANCE_MODE) {
+    const bypassToken = req.cookies.get(MAINTENANCE_BYPASS_COOKIE)?.value;
+
+    if (!bypassToken) {
+      const url = req.nextUrl.clone();
+      url.pathname = MAINTENANCE_PATH;
+      url.searchParams.set("from", pathname);
+      return NextResponse.redirect(url);
+    }
+  }
+
+  const res = NextResponse.next();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,50 +57,17 @@ export async function middleware(req: NextRequest) {
         get(name: string) {
           return req.cookies.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: CookieOptions) {
           res.cookies.set({ name, value, ...options });
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           res.cookies.set({ name, value: "", ...options });
         },
       },
     }
   );
 
-  // これを呼ぶことで、必要な cookie 更新が res に乗る
   await supabase.auth.getUser();
-
-  // --- 2) ここからティザー制御 ---
-  const { pathname } = req.nextUrl;
-
-  // 常に許可（Welcome/ティザー/認証系）
-  const allowedPrefixes = ["/", "/coming-soon", "/login", "/signup", "/auth"];
-
-  const isAllowed = allowedPrefixes.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-  if (isAllowed) return res;
-
-  // ティザーOFFなら全部通す
-  if (!TEASER_MODE) return res;
-
-  // 開発中は止める（/mypage は止めない方針）
-  const blockedPrefixes = [
-    "/questions",
-    "/payment",
-    // "/api", // API止めたいならON
-  ];
-
-  const isBlocked = blockedPrefixes.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-
-  if (isBlocked) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/coming-soon";
-    url.searchParams.set("from", pathname);
-    return NextResponse.redirect(url);
-  }
 
   return res;
 }

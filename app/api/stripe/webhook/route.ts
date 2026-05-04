@@ -1,7 +1,25 @@
 // app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
+import { verifyBestViewCheckoutSession } from "@/lib/best-view-payment";
+import { verifyQuestionCheckoutSession } from "@/lib/question-payment";
+import { verifyNegotiationCheckoutSession } from "@/lib/negotiation-payment";
+import { syncStripeConnectAccountStatusFromAccount } from "@/lib/stripe-connect";
 
 export const runtime = "nodejs";
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown";
+}
+
+function getErrorCode(error: unknown) {
+  return typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+    ? error.code
+    : null;
+}
 
 export async function POST(req: Request) {
   try {
@@ -34,61 +52,172 @@ export async function POST(req: Request) {
 
     const body = await req.text();
 
-    let event: any;
+    let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
-    } catch (err: any) {
-      console.error("Webhook signature verification failed.", err?.message);
-      return new NextResponse(`Webhook Error: ${err?.message ?? "unknown"}`, {
+    } catch (err: unknown) {
+      console.error("Stripe webhook signature verify error", {
+        message: getErrorMessage(err),
+      });
+      return new NextResponse(`Webhook Error: ${getErrorMessage(err)}`, {
         status: 400,
       });
     }
 
-    // ✅ 決済完了イベント
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as any;
+    if (event.type === "account.updated") {
+      const account = event.data.object as Stripe.Account;
 
-      // Supabase/Stripe 側で metadata に入れている値
-      const negotiationId = session.metadata?.negotiationId as
-        | string
-        | undefined;
-      const questionId = session.metadata?.questionId as string | undefined;
-
-      // ---- 交渉承諾の支払い（A-6）----
-      if (negotiationId) {
-        await prisma.negotiation.update({
-          where: { id: negotiationId },
-          data: {
-            // ✅ enum に存在する値を使う
-            status: "ACCEPTED",
-          },
-        });
-
-        console.log("✅ Negotiation marked as ACCEPTED:", negotiationId);
-        return new NextResponse(null, { status: 200 });
-      }
-
-      // ---- 質問投稿の支払い（reward）----
-      if (questionId) {
-        await prisma.question.update({
-          where: { id: questionId },
-          data: { isPaid: true },
-        });
-
-        console.log("✅ Question marked as paid:", questionId);
-        return new NextResponse(null, { status: 200 });
-      }
-
-      console.log("ℹ️ checkout.session.completed but no usable metadata", {
-        metadata: session.metadata,
+      const existingUser = await prisma.user.findUnique({
+        where: { stripeAccountId: account.id },
+        select: { id: true },
       });
+
+      if (!existingUser) {
+        return new NextResponse(null, { status: 200 });
+      }
+
+      await syncStripeConnectAccountStatusFromAccount(existingUser.id, account);
       return new NextResponse(null, { status: 200 });
     }
 
-    // 他イベントは今は無視でOK（必要になったら追加）
-    console.log(`Unhandled event type ${event.type}`);
+    // ✅ 決済完了イベント
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const sessionId = session.id as string | undefined;
+      const kind = session.metadata?.kind as string | undefined;
+      const paymentStatus = session.payment_status as string | undefined;
+
+      // ---- BEST回答閲覧の支払い（PR3）----
+      if (kind === "best_view") {
+        const result = await verifyBestViewCheckoutSession({ session });
+
+        if (!result.ok) {
+          if (result.reason === "missing_metadata") {
+            await prisma.eventLog.create({
+              data: {
+                type: "BEST_VIEW_WEBHOOK_METADATA_MISSING",
+                payload: {
+                  sessionId,
+                  paymentStatus,
+                  metadata: session.metadata ?? null,
+                },
+              },
+            });
+          } else {
+            await prisma.eventLog.create({
+              data: {
+                type: "BEST_VIEW_WEBHOOK_VERIFY_FAILED",
+                payload: {
+                  sessionId,
+                  paymentStatus,
+                  metadata: session.metadata ?? null,
+                  reason: result.reason,
+                },
+              },
+            });
+          }
+
+          console.error("best_view verification failed", {
+            sessionId,
+            paymentStatus,
+            metadata: session.metadata ?? null,
+            reason: result.reason,
+          });
+          return new NextResponse(null, { status: 200 });
+        }
+
+        if (!result.isPaid) {
+          await prisma.eventLog.create({
+            data: {
+              type: "BEST_VIEW_WEBHOOK_PAYMENT_NOT_PAID",
+              payload: {
+                sessionId,
+                questionId: result.questionId,
+                buyerId: result.buyerId,
+                answerId: result.answerId,
+                paymentStatus: paymentStatus ?? null,
+              },
+            },
+          });
+          return new NextResponse(null, { status: 200 });
+        }
+        return new NextResponse(null, { status: 200 });
+      }
+
+      // ---- 質問投稿の支払い ----
+      if (kind === "question_post") {
+        try {
+          const result = await verifyQuestionCheckoutSession({ session });
+
+          if (!result.ok) {
+            if (result.reason === "missing_question_id") {
+              console.error("question_post metadata is missing required fields", {
+                sessionId,
+                metadata: session.metadata ?? null,
+              });
+              return new NextResponse(null, { status: 200 });
+            }
+
+            console.error("question_post verification failed", {
+              sessionId,
+              metadata: session.metadata ?? null,
+              reason: result.reason,
+            });
+            return new NextResponse(null, { status: 200 });
+          }
+
+          if (!result.isPaid) {
+            console.error("question_post payment_status is not paid", {
+              sessionId,
+              questionId: result.questionId,
+              paymentStatus: paymentStatus ?? null,
+            });
+            return new NextResponse(null, { status: 200 });
+          }
+
+        } catch (error: unknown) {
+          console.error("Question update failed", {
+            sessionId,
+            error: getErrorMessage(error),
+            code: getErrorCode(error),
+          });
+          throw error;
+        }
+
+        return new NextResponse(null, { status: 200 });
+      }
+
+      if (kind === "negotiation_accept") {
+        const result = await verifyNegotiationCheckoutSession({ session });
+
+        if (!result.ok) {
+          if (result.reason === "missing_metadata") {
+            console.error("negotiation_accept metadata is missing required fields", {
+              sessionId,
+              metadata: session.metadata ?? null,
+            });
+            return new NextResponse(null, { status: 200 });
+          }
+
+          console.error("negotiation_accept verification failed", {
+            sessionId,
+            metadata: session.metadata ?? null,
+            reason: result.reason,
+          });
+          return new NextResponse(null, { status: 200 });
+        }
+
+        if (!result.isPaid) {
+          return new NextResponse(null, { status: 200 });
+        }
+        return new NextResponse(null, { status: 200 });
+      }
+
+      return new NextResponse(null, { status: 200 });
+    }
+
     return new NextResponse(null, { status: 200 });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("❌ /api/stripe/webhook error:", e);
     return new NextResponse("Webhook handler error", { status: 500 });
   }

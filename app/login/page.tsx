@@ -1,8 +1,10 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { resolveAuthRedirect } from "@/lib/auth-redirect";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { toJapaneseErrorMessage } from "@/lib/errors";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -10,17 +12,14 @@ function LoginForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ✅ ティザー期間のデフォルトは /coming-soon
   const redirectTo = useMemo(() => {
-    const r =
-      searchParams.get("redirectTo") ||
-      searchParams.get("next") ||
-      "/coming-soon";
-    // 外部URLは弾く（安全対策）
-    return r.startsWith("/") ? r : "/coming-soon";
+    return resolveAuthRedirect([
+      searchParams.get("redirectTo"),
+      searchParams.get("callbackUrl"),
+      searchParams.get("next"),
+    ]);
   }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -37,17 +36,15 @@ function LoginForm() {
       });
 
       if (error) {
-        setErrorMsg(error.message);
+        setErrorMsg(toJapaneseErrorMessage(error.message, "ログインに失敗しました"));
         setLoading(false);
         return;
       }
 
-      // ✅ 成功したときだけ遷移
-      router.replace(redirectTo);
-      router.refresh();
+      window.location.assign(redirectTo);
     } catch (err) {
       console.error(err);
-      setErrorMsg("ログイン中にエラーが発生しました");
+      setErrorMsg(toJapaneseErrorMessage(err, "ログイン中にエラーが発生しました"));
     } finally {
       setLoading(false);
     }
@@ -90,6 +87,21 @@ function LoginForm() {
         >
           {loading ? "ログイン中..." : "ログイン"}
         </button>
+
+        <div className="flex flex-col gap-2 text-sm text-center">
+          <a
+            href={`/signup?redirectTo=${encodeURIComponent(redirectTo)}`}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            新規登録はこちら
+          </a>
+          <a
+            href="/forgot-password"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            パスワードを忘れた方はこちら
+          </a>
+        </div>
       </form>
     </div>
   );

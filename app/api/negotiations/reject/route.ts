@@ -18,7 +18,10 @@ export async function POST(req: Request) {
     const negotiationId = body.negotiationId as string | undefined;
 
     if (!negotiationId) {
-      return NextResponse.json({ error: "negotiationId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "交渉情報が不足しています" },
+        { status: 400 }
+      );
     }
 
     // ✅ 質問者本人だけが見送りできるようにする（Answer → Question.userId を辿る）
@@ -36,16 +39,25 @@ export async function POST(req: Request) {
     });
 
     if (!negotiation) {
-      return NextResponse.json({ error: "Negotiation not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "交渉データが見つかりません" },
+        { status: 404 }
+      );
     }
 
     const questionAuthorId = negotiation.answer?.question?.userId;
     if (!questionAuthorId || questionAuthorId !== user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "権限がありません" },
+        { status: 403 }
+      );
     }
 
     if (negotiation.status !== "PENDING") {
-      return NextResponse.json({ error: "Not pending" }, { status: 400 });
+      return NextResponse.json(
+        { error: "この交渉は見送りできない状態です" },
+        { status: 400 }
+      );
     }
 
     await prisma.negotiation.update({
@@ -54,8 +66,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("❌ POST /api/negotiations/reject error:", e);
-    return NextResponse.json({ error: e.message ?? "server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "予期しないエラーが発生しました" },
+      { status: 500 }
+    );
   }
 }

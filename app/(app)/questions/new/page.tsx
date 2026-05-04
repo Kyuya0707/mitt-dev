@@ -2,21 +2,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { ReactSortable } from "react-sortablejs";
+import { MAX_VIEWER_PRICE_JPY } from "@/lib/viewer-price";
+import { toJapaneseErrorMessage } from "@/lib/errors";
+import type { User } from "@supabase/supabase-js";
+import PpConsentSection from "@/app/mypage/PpConsentSection";
+
+const REWARD_PRESETS = [500, 1000, 3000, 5000];
+
+function formatYen(value: number) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+
+  return Math.max(0, Math.trunc(value)).toLocaleString("ja-JP");
+}
 
 export default function NewQuestionPage() {
-  const router = useRouter();
   const supabase = createClientBrowser();
 
   // ----------------------------
   // ① Hooks（順番はここで固定）
   // ----------------------------
-  const [user, setUser] = useState<any | null>(undefined);
+  const [user, setUser] = useState<User | null | undefined>(undefined);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [rewardAmount, setRewardAmount] = useState(100);
+  const [rewardAmount, setRewardAmount] = useState(500);
+  const [viewerPrice, setViewerPrice] = useState(500);
   const [categories, setCategories] =
     useState<{ id: string; name: string }[]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -25,6 +39,8 @@ export default function NewQuestionPage() {
   >([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ppConsentAt, setPpConsentAt] = useState<string | null>(null);
+  const [consentLoading, setConsentLoading] = useState(false);
 
   const MAX_IMAGES = 5;
 
@@ -42,13 +58,67 @@ export default function NewQuestionPage() {
         setCategories(data);
         if (data.length > 0) setCategoryId(data[0].id);
       });
-  }, []);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadConsentStatus = async () => {
+      setConsentLoading(true);
+
+      try {
+        const res = await fetch("/api/user/pp-consent", { cache: "no-store" });
+        const data = (await res.json().catch(() => ({}))) as {
+          ppConsentAt?: string | null;
+          consentAt?: string | null;
+        };
+
+        if (!res.ok) {
+          throw data;
+        }
+
+        if (!cancelled) {
+          setPpConsentAt(data.ppConsentAt ?? data.consentAt ?? null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMsg(
+            toJapaneseErrorMessage(error, "同意状態の取得に失敗しました")
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setConsentLoading(false);
+        }
+      }
+    };
+
+    void loadConsentStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const canSubmitQuestion = Boolean(ppConsentAt);
+
+  const handleRewardAmountChange = (value: string) => {
+    setRewardAmount(value === "" ? 0 : Number(value));
+  };
+
+  const handleViewerPriceChange = (value: string) => {
+    setViewerPrice(value === "" ? 0 : Number(value));
+  };
 
   // ----------------------------
   // ③ 画像ハンドラ
   // ----------------------------
-  const handleImageAdd = (e: any) => {
-    const selected = Array.from(e.target.files) as File[];
+  const handleImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
 
     if (imageItems.length + selected.length > MAX_IMAGES) {
       setErrorMsg(`画像は最大 ${MAX_IMAGES} 枚までです`);
@@ -71,9 +141,17 @@ export default function NewQuestionPage() {
   // ----------------------------
   // ④ 投稿 → 支払いへ
   // ----------------------------
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg("");
+
+    if (!canSubmitQuestion) {
+      setErrorMsg(
+        "質問を投稿するには、副業・税務に関する同意が必要です。"
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -83,6 +161,7 @@ export default function NewQuestionPage() {
       formData.append("body", body);
       formData.append("categoryId", categoryId);
       formData.append("rewardAmount", String(rewardAmount));
+      formData.append("viewerPrice", String(viewerPrice));
       imageItems.forEach((item) => formData.append("images", item.file));
 
       // ① まず質問をDBに保存
@@ -94,7 +173,7 @@ export default function NewQuestionPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMsg(data.error || "投稿に失敗しました");
+        setErrorMsg(toJapaneseErrorMessage(data, "投稿に失敗しました"));
         setLoading(false);
         return;
       }
@@ -121,13 +200,11 @@ export default function NewQuestionPage() {
         return;
       }
 
-      alert(
-        `決済の開始に失敗しました: ${checkoutData.error ?? "unknown error"}`
-      );
+      alert(toJapaneseErrorMessage(checkoutData, "決済の開始に失敗しました"));
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setErrorMsg("エラーが発生しました");
+      setErrorMsg(toJapaneseErrorMessage(err, "エラーが発生しました"));
       setLoading(false);
     }
   };
@@ -145,27 +222,48 @@ export default function NewQuestionPage() {
         <div className="text-center p-10 text-red-500">
           質問投稿にはログインが必要です。
           <br />
-          <a
+          <Link
             href="/login?redirectTo=/questions/new"
             className="underline text-blue-600"
           >
             ログインページへ
-          </a>
+          </Link>
         </div>
       )}
 
       {user && (
         <>
-          <a
-            href="/"
+          <Link
+            href="/questions"
             className="inline-block mb-4 text-blue-600 underline hover:text-blue-800 text-sm"
           >
             ← 質問一覧に戻る
-          </a>
+          </Link>
 
           <h1 className="text-2xl font-bold mb-6">質問を投稿する</h1>
 
           {errorMsg && <p className="text-red-500 mb-2">{errorMsg}</p>}
+
+          {consentLoading ? (
+            <div className="mb-6 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              同意状態を確認しています...
+            </div>
+          ) : !canSubmitQuestion ? (
+            <div className="mb-6 rounded border border-yellow-300 bg-yellow-50 p-4">
+              <p className="mb-3 text-sm text-yellow-900">
+                質問を投稿するには、副業・税務に関する同意が必要です。
+              </p>
+              <PpConsentSection
+                ppConsentAt={ppConsentAt}
+                redirectTo="/questions/new"
+                refreshOnSuccess={false}
+                onAgreed={(agreedAt) => {
+                  setPpConsentAt(agreedAt);
+                  setErrorMsg("");
+                }}
+              />
+            </div>
+          ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* タイトル */}
@@ -210,15 +308,75 @@ export default function NewQuestionPage() {
 
             {/* 報酬額 */}
             <div>
-              <label className="block mb-1 font-medium">報酬額（円）</label>
-              <input
-                type="number"
-                className="w-full border p-2 rounded text-black"
-                value={rewardAmount}
-                onChange={(e) => setRewardAmount(Number(e.target.value))}
-                min={100}
-                required
-              />
+              <label className="block mb-1 font-medium">報酬額</label>
+              <div className="flex items-center overflow-hidden rounded border">
+                <input
+                  type="number"
+                  className="w-full p-2 text-black outline-none"
+                  value={rewardAmount}
+                  onChange={(e) => handleRewardAmountChange(e.target.value)}
+                  min={500}
+                  step={100}
+                  required
+                />
+                <span className="border-l bg-gray-50 px-4 py-2 text-sm text-gray-700">
+                  円
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                最低報酬額は500円です。現在: {formatYen(rewardAmount)}円
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {REWARD_PRESETS.map((amount) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    onClick={() => setRewardAmount(amount)}
+                    className={`rounded-full border px-3 py-1 text-sm transition ${
+                      rewardAmount === amount
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {amount.toLocaleString("ja-JP")}円
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* BEST閲覧価格 */}
+            <div>
+              <label className="block mb-1 font-medium">BEST閲覧価格</label>
+              <div className="flex items-center overflow-hidden rounded border">
+                <input
+                  type="number"
+                  className="w-full p-2 text-black outline-none"
+                  value={viewerPrice}
+                  onChange={(e) => handleViewerPriceChange(e.target.value)}
+                  onInvalid={(e) => {
+                    e.currentTarget.setCustomValidity(
+                      "BEST閲覧価格は1円以上100,000円以下の整数で入力してください"
+                    );
+                  }}
+                  onInput={(e) => {
+                    e.currentTarget.setCustomValidity("");
+                  }}
+                  min={1}
+                  max={MAX_VIEWER_PRICE_JPY}
+                  step={1}
+                  required
+                />
+                <span className="border-l bg-gray-50 px-4 py-2 text-sm text-gray-700">
+                  円
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                BEST回答の閲覧時に購入者へ請求する金額です（1円〜
+                {MAX_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円、1円単位）
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                現在: {formatYen(viewerPrice)}円
+              </p>
             </div>
 
             {/* 画像 */}
@@ -247,6 +405,7 @@ export default function NewQuestionPage() {
                       <img
                         src={item.url}
                         className="w-24 h-24 object-cover rounded border"
+                        alt="質問画像プレビュー"
                       />
                       <button
                         type="button"
@@ -262,10 +421,14 @@ export default function NewQuestionPage() {
             </div>
 
             <button
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-60"
+              disabled={loading || consentLoading || !canSubmitQuestion}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "投稿中…" : "投稿して支払いに進む"}
+              {loading
+                ? "投稿中…"
+                : !canSubmitQuestion
+                  ? "同意後に投稿できます"
+                  : "投稿して支払いに進む"}
             </button>
           </form>
         </>

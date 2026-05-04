@@ -10,12 +10,15 @@ type QuoteMode = "short" | "full";
 
 type QuestionInteractionClientProps = {
   questionId: string;
-  consentAt: string | null;
+  ppConsentAt: string | null;
   questionTitle: string;
   questionContent: string;
+  answerPagePath: string;
+  questionRewardAmount: number;
+  viewerPrice: number | null;
   answers: QuestionAnswer[];
   bestAnswerId: string | null;
-  isAuthor: boolean;
+  isQuestionOwner: boolean;
   isLoggedIn: boolean;
   isClosed: boolean;
   fromNotification: boolean;
@@ -25,12 +28,15 @@ type QuestionInteractionClientProps = {
 
 export default function QuestionInteractionClient({
   questionId,
-  consentAt,
+  ppConsentAt,
   questionTitle,
   questionContent,
+  answerPagePath,
+  questionRewardAmount,
+  viewerPrice,
   answers,
   bestAnswerId,
-  isAuthor,
+  isQuestionOwner,
   isLoggedIn,
   isClosed,
   fromNotification,
@@ -83,10 +89,13 @@ export default function QuestionInteractionClient({
         <AnswerCard
           ans={answer}
           isBest={answer.id === bestAnswerId}
-          isAuthor={isAuthor}
+          hasBestAnswer={!!bestAnswerId}
+          isQuestionOwner={isQuestionOwner}
           markRead={markRead}
           onQuote={() => setInsertText(buildQuoteFromAnswer(answer, quoteMode))}
           currentUserId={currentUserId}
+          questionRewardAmount={questionRewardAmount}
+          viewerPrice={viewerPrice}
         />
       </div>
     );
@@ -128,12 +137,13 @@ export default function QuestionInteractionClient({
         )}
       </div>
 
-      {isLoggedIn && !isClosed && (
+      {isLoggedIn && !isClosed && !isQuestionOwner && (
         <AnswerForm
           questionId={questionId}
-          consentAt={consentAt}
+          ppConsentAt={ppConsentAt}
           questionTitle={questionTitle}
           questionContent={questionContent}
+          answerPagePath={answerPagePath}
           insertText={insertText}
           onInserted={() => setInsertText(null)}
         />
