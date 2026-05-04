@@ -82,6 +82,8 @@ async function finalizeQuestionCheckoutSession(
   expectedQuestionId?: string
 ): Promise<VerifyQuestionCheckoutSessionResult> {
   const questionId = session.metadata?.questionId;
+  const sessionUserId = session.metadata?.userId;
+  const sessionId = session.id;
 
   if (session.metadata?.kind !== "question_post") {
     return { ok: false, reason: "invalid_kind" };
@@ -116,6 +118,7 @@ async function finalizeQuestionCheckoutSession(
       userId: true,
       title: true,
       categoryId: true,
+      rewardAmount: true,
       category: {
         select: {
           name: true,
@@ -128,7 +131,16 @@ async function finalizeQuestionCheckoutSession(
     return { ok: false, reason: "session_mismatch" };
   }
 
-  if (current.isPaid) {
+  const purchaseUserId = sessionUserId ?? current.userId;
+
+  const existingBySession = sessionId
+    ? await prisma.purchase.findUnique({
+        where: { stripeSessionId: sessionId },
+        select: { id: true },
+      })
+    : null;
+
+  if (existingBySession) {
     return {
       ok: true,
       session,
@@ -139,12 +151,55 @@ async function finalizeQuestionCheckoutSession(
     };
   }
 
-  await prisma.question.update({
-    where: { id: questionId },
-    data: { isPaid: true },
+  const existingByUser = purchaseUserId
+    ? await prisma.purchase.findFirst({
+        where: {
+          userId: purchaseUserId,
+          questionId,
+          status: "PAID",
+        },
+        select: { id: true, stripeSessionId: true },
+      })
+    : null;
+
+  const shouldCreatePurchase = !!purchaseUserId && !existingByUser;
+  const shouldUpdateExistingPurchaseSessionId =
+    !!sessionId &&
+    !!existingByUser &&
+    !existingByUser.stripeSessionId;
+
+  await prisma.$transaction(async (tx) => {
+    if (!current.isPaid) {
+      await tx.question.update({
+        where: { id: questionId },
+        data: { isPaid: true },
+      });
+    }
+
+    if (shouldCreatePurchase && purchaseUserId) {
+      await tx.purchase.create({
+        data: {
+          userId: purchaseUserId,
+          questionId,
+          amount: current.rewardAmount,
+          currency: (session.currency ?? "jpy").toLowerCase(),
+          stripeSessionId: sessionId ?? null,
+          status: "PAID",
+        },
+      });
+    }
+
+    if (shouldUpdateExistingPurchaseSessionId && existingByUser) {
+      await tx.purchase.update({
+        where: { id: existingByUser.id },
+        data: {
+          stripeSessionId: sessionId,
+        },
+      });
+    }
   });
 
-  if (current.userId && current.category?.name) {
+  if (!current.isPaid && current.userId && current.category?.name) {
     await createCategoryQuestionNotifications({
       actorUserId: current.userId,
       questionId: current.id,
@@ -154,12 +209,12 @@ async function finalizeQuestionCheckoutSession(
     });
   }
 
-  return {
-    ok: true,
-    session,
-    questionId,
-    isPaid: true,
-    alreadyPaid: false,
-    updatedQuestion: true,
-  };
+    return {
+      ok: true,
+      session,
+      questionId,
+      isPaid: true,
+      alreadyPaid: current.isPaid,
+      updatedQuestion: !current.isPaid,
+    };
 }
