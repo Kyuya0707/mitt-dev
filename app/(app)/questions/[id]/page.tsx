@@ -17,6 +17,13 @@ import type { QuestionAnswer } from "./types";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
+const answerUserSelect = {
+  id: true,
+  email: true,
+  username: true,
+  name: true,
+} as const;
+
 /* =========================================================
    ★ Server Action：回答を既読として保存（AnswerRead）
 ========================================================= */
@@ -107,12 +114,18 @@ export default async function Page({
       user: true,
       answers: {
         include: {
-          user: true,
+          user: {
+            select: answerUserSelect,
+          },
           images: true,
           negotiation: true,
           reads: { where: { userId: authUser?.id ?? "" } },
           comments: {
-            include: { user: true },
+            include: {
+              user: {
+                select: answerUserSelect,
+              },
+            },
             orderBy: { createdAt: "asc" },
           },
         },
@@ -170,12 +183,18 @@ export default async function Page({
           user: true,
           answers: {
             include: {
-              user: true,
+              user: {
+                select: answerUserSelect,
+              },
               images: true,
               negotiation: true,
               reads: { where: { userId: authUser?.id ?? "" } },
               comments: {
-                include: { user: true },
+                include: {
+                  user: {
+                    select: answerUserSelect,
+                  },
+                },
                 orderBy: { createdAt: "asc" },
               },
             },
