@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
+import { getBaseUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 
@@ -110,9 +111,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const envBaseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    const baseUrl =
-      envBaseUrl && envBaseUrl.length > 0 ? envBaseUrl : new URL(req.url).origin;
+    const baseUrl = getBaseUrl();
 
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json(

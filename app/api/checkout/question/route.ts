@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getBaseUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs"; // Stripe/Prismaなので明示（Edge回避）
 
@@ -40,9 +41,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const envBaseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    const baseUrl =
-      envBaseUrl && envBaseUrl.length > 0 ? envBaseUrl : new URL(req.url).origin;
+    const baseUrl = getBaseUrl();
 
     // ✅ DBから rewardAmount を取得（改ざん防止）
     const q = await prisma.question.findUnique({

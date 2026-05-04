@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureConnectedAccountForUser } from "@/lib/stripe-connect";
+import { getBaseUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 
@@ -28,9 +29,7 @@ export async function POST(req: Request) {
       email: user.email,
     });
 
-    const envBaseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    const baseUrl =
-      envBaseUrl && envBaseUrl.length > 0 ? envBaseUrl : new URL(req.url).origin;
+    const baseUrl = getBaseUrl();
 
     const stripe = getStripe();
     const link = await stripe.accountLinks.create({

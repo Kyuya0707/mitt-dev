@@ -1,6 +1,7 @@
 // app/api/checkout/sessions/route.ts
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { getBaseUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
 
@@ -25,11 +26,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ baseUrl は env 優先、なければリクエストから組み立て
-    const envBaseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    const baseUrl = envBaseUrl && envBaseUrl.length > 0
-      ? envBaseUrl
-      : new URL(req.url).origin;
+    const baseUrl = getBaseUrl();
 
     // ✅ env未設定でビルド落ちしないように、ここで判定して返す
     if (!process.env.STRIPE_SECRET_KEY) {
