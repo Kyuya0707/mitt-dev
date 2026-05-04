@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export const NOTIFICATION_TYPES = {
   ANSWER_CREATED: "ANSWER_CREATED",
@@ -215,7 +216,7 @@ export async function createUserNotification({
       type,
       message,
       url: url ?? null,
-      data: data ?? null,
+      data: data ? (data as Prisma.InputJsonValue) : undefined,
     },
   });
 

@@ -50,7 +50,9 @@ async function main() {
     select: { id: true },
   });
 
-  const legacyCategoryIds = legacyCategories.map((category) => category.id);
+  const legacyCategoryIds = legacyCategories.map(
+    (category: (typeof legacyCategories)[number]) => category.id
+  );
 
   if (legacyCategoryIds.length > 0) {
     await prisma.question.updateMany({

@@ -227,7 +227,7 @@ async function ensureBestViewPayouts(params: {
 export async function verifyBestViewCheckoutSession(
   input: VerifyBestViewCheckoutSessionInput
 ): Promise<VerifyBestViewCheckoutSessionResult> {
-  if ("session" in input) {
+  if ("session" in input && input.session) {
     return finalizeBestViewCheckoutSession(input.session, input.questionId);
   }
 

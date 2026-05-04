@@ -7,9 +7,9 @@ function isSafeInternalPath(value: string | null | undefined) {
 export function resolveAuthRedirect(
   values: Array<string | null | undefined>,
   fallback = DEFAULT_AUTH_REDIRECT
-) {
+): string {
   for (const value of values) {
-    if (isSafeInternalPath(value)) {
+    if (typeof value === "string" && isSafeInternalPath(value)) {
       return value;
     }
   }

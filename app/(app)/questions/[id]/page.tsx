@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { verifyBestViewCheckoutSession } from "@/lib/best-view-payment";
 import { verifyQuestionCheckoutSession } from "@/lib/question-payment";
@@ -23,6 +24,41 @@ const answerUserSelect = {
   username: true,
   name: true,
 } as const;
+
+const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
+  id: true,
+  title: true,
+  content: true,
+  userId: true,
+  categoryId: true,
+  bestAnswerId: true,
+  isClosed: true,
+  rewardAmount: true,
+  viewerPrice: true,
+  isPaid: true,
+  category: true,
+  user: true,
+  images: true,
+  answers: {
+    orderBy: { createdAt: "asc" },
+    include: {
+      user: {
+        select: answerUserSelect,
+      },
+      images: true,
+      negotiation: true,
+      reads: true,
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          user: {
+            select: answerUserSelect,
+          },
+        },
+      },
+    },
+  },
+});
 
 /* =========================================================
    ★ Server Action：回答を既読として保存（AnswerRead）
@@ -109,30 +145,7 @@ export default async function Page({
 
   const initialQuestion = await prisma.question.findUnique({
     where: { id },
-    include: {
-      category: true,
-      user: true,
-      answers: {
-        include: {
-          user: {
-            select: answerUserSelect,
-          },
-          images: true,
-          negotiation: true,
-          reads: { where: { userId: authUser?.id ?? "" } },
-          comments: {
-            include: {
-              user: {
-                select: answerUserSelect,
-              },
-            },
-            orderBy: { createdAt: "asc" },
-          },
-        },
-        orderBy: { createdAt: "asc" },
-      },
-      images: true,
-    },
+    select: questionDetailSelect,
   });
 
   if (!initialQuestion) {
@@ -178,30 +191,7 @@ export default async function Page({
   const question = shouldRefetchQuestion
     ? await prisma.question.findUnique({
         where: { id },
-        include: {
-          category: true,
-          user: true,
-          answers: {
-            include: {
-              user: {
-                select: answerUserSelect,
-              },
-              images: true,
-              negotiation: true,
-              reads: { where: { userId: authUser?.id ?? "" } },
-              comments: {
-                include: {
-                  user: {
-                    select: answerUserSelect,
-                  },
-                },
-                orderBy: { createdAt: "asc" },
-              },
-            },
-            orderBy: { createdAt: "asc" },
-          },
-          images: true,
-        },
+        select: questionDetailSelect,
       })
     : initialQuestion;
 
@@ -288,6 +278,7 @@ export default async function Page({
     if (isLockedBest) {
       return {
         ...answer,
+        reads: answer.reads.filter((read) => read.userId === (authUser?.id ?? "")),
         content: null,
         comments: null,
         locked: true,
@@ -296,6 +287,7 @@ export default async function Page({
 
     return {
       ...answer,
+      reads: answer.reads.filter((read) => read.userId === (authUser?.id ?? "")),
       locked: false,
     };
   });

@@ -117,13 +117,18 @@ async function assertTargetsExist() {
   ]);
 
   const missingQuestions = TARGET_QUESTION_IDS.filter(
-    (id) => !questions.some((question) => question.id === id)
+    (id) =>
+      !questions.some((question: (typeof questions)[number]) => question.id === id)
   );
   const missingAnswers = TARGET_ANSWER_IDS.filter(
-    (id) => !answers.some((answer) => answer.id === id)
+    (id) =>
+      !answers.some((answer: (typeof answers)[number]) => answer.id === id)
   );
   const missingNegotiations = TARGET_NEGOTIATION_IDS.filter(
-    (id) => !negotiations.some((negotiation) => negotiation.id === id)
+    (id) =>
+      !negotiations.some(
+        (negotiation: (typeof negotiations)[number]) => negotiation.id === id
+      )
   );
 
   if (missingQuestions.length || missingAnswers.length || missingNegotiations.length) {
@@ -157,7 +162,10 @@ async function assertTargetsExist() {
   if (answersReferencedAsBest.length > 0) {
     throw new Error(
       `Refusing to delete BEST answers still referenced by non-target questions: ${answersReferencedAsBest
-        .map((question) => `${question.id} -> ${question.bestAnswerId}`)
+        .map(
+          (question: (typeof answersReferencedAsBest)[number]) =>
+            `${question.id} -> ${question.bestAnswerId}`
+        )
         .join(", ")}`
     );
   }
@@ -289,7 +297,7 @@ async function performDelete() {
   const negotiationIds = dedupe(TARGET_NEGOTIATION_IDS);
   const notificationUrls = questionIds.map(questionUrl);
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: typeof prisma) => {
     const counts: DeleteCounts = {
       answerImages: await tx.answerImage.deleteMany({
         where: { answerId: { in: answerIds } },

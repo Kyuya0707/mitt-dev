@@ -76,7 +76,7 @@ async function findAnswersWithoutNegotiation() {
     orderBy: { createdAt: "desc" },
   });
 
-  return answers.map((answer) => ({
+  return answers.map((answer: (typeof answers)[number]) => ({
     id: answer.id,
     createdAt: answer.createdAt.toISOString(),
     questionId: answer.questionId,
@@ -119,7 +119,7 @@ async function findSuspiciousUnpaidQuestions() {
     orderBy: { createdAt: "desc" },
   });
 
-  return questions.map((question) => {
+  return questions.map((question: (typeof questions)[number]) => {
     const reasons: string[] = [];
 
     if (question.bestAnswerId) reasons.push("bestAnswerIdあり");
@@ -247,10 +247,10 @@ async function findSuspiciousTestData() {
 
   const heuristicMatches = heuristicQuestions
     .filter(
-      (question) =>
+      (question: (typeof heuristicQuestions)[number]) =>
         containsTestKeyword(question.title) || containsTestKeyword(question.content)
     )
-    .map((question) => ({
+    .map((question: (typeof heuristicQuestions)[number]) => ({
       id: question.id,
       createdAt: question.createdAt.toISOString(),
       title: question.title,

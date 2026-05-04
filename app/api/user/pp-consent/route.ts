@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       ok: true,
       userId: savedUser.id,
       redirectTo,
-      ppConsentAt: savedUser.ppConsentAt.toISOString(),
+      ppConsentAt: ppConsentAt.toISOString(),
       ppConsentVersion: savedUser.ppConsentVersion,
     });
   } catch (error) {

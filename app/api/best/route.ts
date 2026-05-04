@@ -4,6 +4,16 @@ import { getCurrentUser } from "@/lib/auth";
 import { NOTIFICATION_TYPES, createUserNotification } from "@/lib/notifications";
 import { sendAdminPayoutNotification } from "@/lib/admin-notifications";
 
+type CreatedPayoutNotificationPayload = {
+  amount: number;
+  questionId: string | null;
+  answerId: string | null;
+  user: {
+    username: string | null;
+    email: string;
+  };
+};
+
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
@@ -78,23 +88,28 @@ export async function POST(req: Request) {
       );
     }
 
+    const answerUserId = answer.userId;
+
+    const payoutRecipient = await prisma.user.findUnique({
+      where: { id: answerUserId },
+      select: {
+        username: true,
+        email: true,
+      },
+    });
+
+    if (!payoutRecipient) {
+      return NextResponse.json(
+        { error: "回答者情報が見つかりません" },
+        { status: 404 }
+      );
+    }
+
     const grossAmount = q.rewardAmount;
     const platformFeeAmount = Math.floor(grossAmount * 0.1);
     const netAmount = grossAmount - platformFeeAmount;
 
-    let createdPayout:
-      | {
-          amount: number;
-          questionId: string | null;
-          answerId: string | null;
-          user: {
-            username: string | null;
-            email: string;
-          };
-        }
-      | null = null;
-
-    await prisma.$transaction(async (tx) => {
+    const createdPayout = await prisma.$transaction(async (tx) => {
       await tx.question.update({
         where: { id: questionId },
         data: {
@@ -109,9 +124,9 @@ export async function POST(req: Request) {
       });
 
       if (!existingPayout) {
-        createdPayout = await tx.payout.create({
+        await tx.payout.create({
           data: {
-            userId: answer.userId,
+            userId: answerUserId,
             questionId,
             answerId: answer.id,
             grossAmount,
@@ -122,23 +137,22 @@ export async function POST(req: Request) {
             status: "pending",
             stripeAccountId: answer.user?.stripeAccountId ?? null,
           },
-          select: {
-            amount: true,
-            questionId: true,
-            answerId: true,
-            user: {
-              select: {
-                username: true,
-                email: true,
-              },
-            },
-          },
         });
+        return {
+          amount: netAmount,
+          questionId,
+          answerId: answer.id,
+          user: {
+            username: payoutRecipient.username,
+            email: payoutRecipient.email,
+          },
+        };
       }
+      return null;
     });
 
     await createUserNotification({
-      userId: answer.userId,
+      userId: answerUserId,
       actorUserId: user.id,
       type: NOTIFICATION_TYPES.BEST_SELECTED,
       message: `あなたの回答がBESTに選ばれました: ${q.title}`,
@@ -153,7 +167,7 @@ export async function POST(req: Request) {
       await sendAdminPayoutNotification({
         payoutType: "question_reward",
         amount: createdPayout.amount,
-        recipientName: createdPayout.user.username,
+        recipientName: createdPayout.user.username ?? undefined,
         recipientEmail: createdPayout.user.email,
         questionId: createdPayout.questionId ?? questionId,
         answerId: createdPayout.answerId ?? answerId,

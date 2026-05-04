@@ -21,13 +21,21 @@ const CATEGORY_ORDER = new Map(
 
 export function sortCategoryNames<T extends { name?: string | null }>(items: T[]) {
   return [...items].sort((a, b) => {
-    const aOrder = CATEGORY_ORDER.get(a.name ?? "") ?? Number.MAX_SAFE_INTEGER;
-    const bOrder = CATEGORY_ORDER.get(b.name ?? "") ?? Number.MAX_SAFE_INTEGER;
+    const aName = a.name ?? "";
+    const bName = b.name ?? "";
+    const aOrder = aName
+      ? CATEGORY_ORDER.get(aName as (typeof CATEGORY_NAMES)[number]) ??
+        Number.MAX_SAFE_INTEGER
+      : Number.MAX_SAFE_INTEGER;
+    const bOrder = bName
+      ? CATEGORY_ORDER.get(bName as (typeof CATEGORY_NAMES)[number]) ??
+        Number.MAX_SAFE_INTEGER
+      : Number.MAX_SAFE_INTEGER;
 
     if (aOrder !== bOrder) {
       return aOrder - bOrder;
     }
 
-    return (a.name ?? "").localeCompare(b.name ?? "", "ja");
+    return aName.localeCompare(bName, "ja");
   });
 }

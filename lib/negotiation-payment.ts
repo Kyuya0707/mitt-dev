@@ -50,7 +50,7 @@ function getStripe() {
 export async function verifyNegotiationCheckoutSession(
   input: VerifyNegotiationCheckoutSessionInput
 ): Promise<VerifyNegotiationCheckoutSessionResult> {
-  if ("session" in input) {
+  if ("session" in input && input.session) {
     return finalizeNegotiationCheckoutSession(input.session, input.questionId);
   }
 
