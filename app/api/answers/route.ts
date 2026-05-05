@@ -214,40 +214,60 @@ export async function POST(req: Request) {
       sortOrder++;
     }
 
-    if (question.userId) {
+    const recipientUserId = question.userId;
+
+    if (recipientUserId && recipientUserId !== user.id) {
       // TEMP DEBUG: 本番確認後に削除
       console.log("[TEMP_NOTIFICATION_TRACE] answer notification reached", {
         questionId: question.id,
         answerId: answer.id,
-        recipientUserId: question.userId,
+        recipientUserId,
         actorUserId: user.id,
       });
 
-      await safeCreateUserNotification({
-        userId: question.userId,
-        actorUserId: user.id,
-        type: NOTIFICATION_TYPES.ANSWER_CREATED,
-        message: `あなたの質問に回答がつきました: ${question.title}`,
-        url: `/questions/${question.id}?from=notification`,
-        data: {
+      try {
+        await safeCreateUserNotification({
+          userId: recipientUserId,
+          actorUserId: user.id,
+          type: NOTIFICATION_TYPES.ANSWER_CREATED,
+          message: `あなたの質問に回答がつきました: ${question.title}`,
+          url: `/questions/${question.id}?from=notification`,
+          data: {
+            questionId: question.id,
+            answerId: answer.id,
+          },
+          context: "answer_created",
+        });
+
+        // TEMP DEBUG: 本番確認後に削除
+        console.log("[TEMP_NOTIFICATION_TRACE] answer notification awaited", {
           questionId: question.id,
           answerId: answer.id,
-        },
-        context: "answer_created",
-      });
+          recipientUserId,
+          actorUserId: user.id,
+        });
+      } catch (error) {
+        console.error("Answer notification dispatch failed:", {
+          questionId: question.id,
+          answerId: answer.id,
+          recipientUserId,
+          actorUserId: user.id,
+          error,
+        });
+      }
 
       if (negotiationId) {
         // TEMP DEBUG: 本番確認後に削除
         console.log("[TEMP_NOTIFICATION_TRACE] negotiation notification reached", {
           questionId: question.id,
           answerId: answer.id,
-          recipientUserId: question.userId,
+          recipientUserId,
           actorUserId: user.id,
           negotiationId,
         });
 
         await safeCreateUserNotification({
-          userId: question.userId,
+          userId: recipientUserId,
           actorUserId: user.id,
           type: NOTIFICATION_TYPES.NEGOTIATION_CREATED,
           message: `あなたの質問に交渉提案が届きました: ${question.title}`,
@@ -260,6 +280,14 @@ export async function POST(req: Request) {
           context: "negotiation_created",
         });
       }
+    } else {
+      // TEMP DEBUG: 本番確認後に削除
+      console.log("[TEMP_NOTIFICATION_TRACE] answer notification skipped before dispatch", {
+        questionId: question.id,
+        answerId: answer.id,
+        recipientUserId: recipientUserId ?? null,
+        actorUserId: user.id,
+      });
     }
 
     return NextResponse.json({ id: answer.id });
