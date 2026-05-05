@@ -144,14 +144,6 @@ export async function POST(req: Request) {
       return null;
     });
 
-    // TEMP DEBUG: 本番確認後に削除
-    console.log("[TEMP_NOTIFICATION_TRACE] best notification reached", {
-      questionId,
-      answerId,
-      recipientUserId: answerUserId,
-      actorUserId: user.id,
-    });
-
     await safeCreateUserNotification({
       userId: answerUserId,
       actorUserId: user.id,

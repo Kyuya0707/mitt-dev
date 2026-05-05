@@ -207,33 +207,12 @@ export async function createUserNotification({
   data,
 }: CreateNotificationInput) {
   if (!userId) {
-    // TEMP DEBUG: 本番確認後に削除
-    console.log("[TEMP_NOTIFICATION_TRACE] notification skipped missing userId", {
-      type,
-      actorUserId: actorUserId ?? null,
-      data: data ?? null,
-    });
     return null;
   }
 
   if (actorUserId && actorUserId === userId) {
-    // TEMP DEBUG: 本番確認後に削除
-    console.log("[TEMP_NOTIFICATION_TRACE] notification skipped self", {
-      userId,
-      actorUserId,
-      type,
-      data: data ?? null,
-    });
     return null;
   }
-
-  // TEMP DEBUG: 本番確認後に削除
-  console.log("[TEMP_NOTIFICATION_TRACE] notification create start", {
-    userId,
-    actorUserId: actorUserId ?? null,
-    type,
-    data: data ?? null,
-  });
 
   const notification = await prisma.notification.create({
     data: {
@@ -250,15 +229,6 @@ export async function createUserNotification({
     const preferenceKey = EMAIL_PREFERENCE_KEY_BY_TYPE[type];
     const shouldSend = preference[preferenceKey];
 
-    // TEMP DEBUG: 本番確認後に削除
-    console.log("[TEMP_EMAIL_TRACE] send email check", {
-      type,
-      preferenceKey,
-      shouldSend,
-      hasApiKey: !!process.env.RESEND_API_KEY,
-      hasFrom: !!process.env.NOTIFICATION_FROM_EMAIL,
-    });
-
     if (!shouldSend) {
       return notification;
     }
@@ -271,9 +241,6 @@ export async function createUserNotification({
     if (!targetUser?.email) {
       return notification;
     }
-
-    // TEMP DEBUG: 本番確認後に削除
-    console.log("[TEMP_EMAIL_TRACE] sending email", { type });
 
     await sendNotificationEmail({
       to: targetUser.email,

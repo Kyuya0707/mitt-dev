@@ -230,34 +230,9 @@ export async function POST(req: Request) {
         context: "answer_created" as const,
       };
 
-      // TEMP DEBUG: 本番確認後に削除
-      console.log("[TEMP_NOTIFICATION_TRACE] answer notification reached", {
-        questionId: question.id,
-        answerId: answer.id,
-        recipientUserId,
-        actorUserId: user.id,
-      });
-
       await safeCreateUserNotification(answerNotificationInput);
 
-      // TEMP DEBUG: 本番確認後に削除
-      console.log("[TEMP_NOTIFICATION_TRACE] answer notification awaited", {
-        questionId: question.id,
-        answerId: answer.id,
-        recipientUserId,
-        actorUserId: user.id,
-      });
-
       if (negotiationId) {
-        // TEMP DEBUG: 本番確認後に削除
-        console.log("[TEMP_NOTIFICATION_TRACE] negotiation notification reached", {
-          questionId: question.id,
-          answerId: answer.id,
-          recipientUserId,
-          actorUserId: user.id,
-          negotiationId,
-        });
-
         await safeCreateUserNotification({
           userId: recipientUserId,
           actorUserId: user.id,
@@ -272,14 +247,6 @@ export async function POST(req: Request) {
           context: "negotiation_created",
         });
       }
-    } else {
-      // TEMP DEBUG: 本番確認後に削除
-      console.log("[TEMP_NOTIFICATION_TRACE] answer notification skipped before dispatch", {
-        questionId: question.id,
-        answerId: answer.id,
-        recipientUserId: recipientUserId ?? null,
-        actorUserId: user.id,
-      });
     }
 
     return NextResponse.json({ id: answer.id });
