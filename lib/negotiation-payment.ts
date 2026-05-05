@@ -1,6 +1,9 @@
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
-import { NOTIFICATION_TYPES, createUserNotification } from "@/lib/notifications";
+import {
+  NOTIFICATION_TYPES,
+  safeCreateUserNotification,
+} from "@/lib/notifications";
 
 type VerifyNegotiationCheckoutSessionResult =
   | {
@@ -154,7 +157,7 @@ async function finalizeNegotiationCheckoutSession(
   });
 
   if (negotiation.answer?.userId) {
-    await createUserNotification({
+    await safeCreateUserNotification({
       userId: negotiation.answer.userId,
       type: NOTIFICATION_TYPES.NEGOTIATION_ACCEPTED,
       message: `あなたの交渉提案が承認されました: ${negotiation.question?.title ?? "質問"}`,
@@ -164,6 +167,7 @@ async function finalizeNegotiationCheckoutSession(
         answerId: negotiation.answer.id,
         negotiationId,
       },
+      context: "negotiation_accepted",
     });
   }
 

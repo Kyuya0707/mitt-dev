@@ -30,6 +30,10 @@ type CreateNotificationInput = {
   data?: NotificationData;
 };
 
+type SafeCreateNotificationInput = CreateNotificationInput & {
+  context?: string;
+};
+
 type EmailPreferenceKey =
   | "emailOnAnswerCreated"
   | "emailOnCommentCreated"
@@ -203,12 +207,33 @@ export async function createUserNotification({
   data,
 }: CreateNotificationInput) {
   if (!userId) {
+    // TEMP DEBUG: 本番確認後に削除
+    console.log("[TEMP_NOTIFICATION_TRACE] notification skipped missing userId", {
+      type,
+      actorUserId: actorUserId ?? null,
+      data: data ?? null,
+    });
     return null;
   }
 
   if (actorUserId && actorUserId === userId) {
+    // TEMP DEBUG: 本番確認後に削除
+    console.log("[TEMP_NOTIFICATION_TRACE] notification skipped self", {
+      userId,
+      actorUserId,
+      type,
+      data: data ?? null,
+    });
     return null;
   }
+
+  // TEMP DEBUG: 本番確認後に削除
+  console.log("[TEMP_NOTIFICATION_TRACE] notification create start", {
+    userId,
+    actorUserId: actorUserId ?? null,
+    type,
+    data: data ?? null,
+  });
 
   const notification = await prisma.notification.create({
     data: {
@@ -250,6 +275,24 @@ export async function createUserNotification({
   return notification;
 }
 
+export async function safeCreateUserNotification(
+  input: SafeCreateNotificationInput
+) {
+  try {
+    return await createUserNotification(input);
+  } catch (error) {
+    console.error("Notification create failed:", {
+      context: input.context ?? null,
+      userId: input.userId,
+      actorUserId: input.actorUserId ?? null,
+      type: input.type,
+      data: input.data ?? null,
+      error,
+    });
+    return null;
+  }
+}
+
 export async function createCategoryQuestionNotifications(input: {
   actorUserId: string;
   questionId: string;
@@ -268,7 +311,7 @@ export async function createCategoryQuestionNotifications(input: {
   });
 
   for (const recipient of recipients) {
-    await createUserNotification({
+    await safeCreateUserNotification({
       userId: recipient.id,
       actorUserId: input.actorUserId,
       type: NOTIFICATION_TYPES.CATEGORY_QUESTION_CREATED,
@@ -278,6 +321,7 @@ export async function createCategoryQuestionNotifications(input: {
         questionId: input.questionId,
         categoryId: input.categoryId,
       },
+      context: "category_question_created",
     });
   }
 }

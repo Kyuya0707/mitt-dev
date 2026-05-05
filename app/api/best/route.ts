@@ -1,18 +1,11 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { NOTIFICATION_TYPES, createUserNotification } from "@/lib/notifications";
+import {
+  NOTIFICATION_TYPES,
+  safeCreateUserNotification,
+} from "@/lib/notifications";
 import { sendAdminPayoutNotification } from "@/lib/admin-notifications";
-
-type CreatedPayoutNotificationPayload = {
-  amount: number;
-  questionId: string | null;
-  answerId: string | null;
-  user: {
-    username: string | null;
-    email: string;
-  };
-};
 
 export async function POST(req: Request) {
   try {
@@ -151,7 +144,15 @@ export async function POST(req: Request) {
       return null;
     });
 
-    await createUserNotification({
+    // TEMP DEBUG: 本番確認後に削除
+    console.log("[TEMP_NOTIFICATION_TRACE] best notification reached", {
+      questionId,
+      answerId,
+      recipientUserId: answerUserId,
+      actorUserId: user.id,
+    });
+
+    await safeCreateUserNotification({
       userId: answerUserId,
       actorUserId: user.id,
       type: NOTIFICATION_TYPES.BEST_SELECTED,
@@ -161,6 +162,7 @@ export async function POST(req: Request) {
         questionId,
         answerId,
       },
+      context: "best_selected",
     });
 
     if (createdPayout) {

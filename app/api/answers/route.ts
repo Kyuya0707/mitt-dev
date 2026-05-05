@@ -1,7 +1,10 @@
 // app/api/answers/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { NOTIFICATION_TYPES, createUserNotification } from "@/lib/notifications";
+import {
+  NOTIFICATION_TYPES,
+  safeCreateUserNotification,
+} from "@/lib/notifications";
 import { supabaseServer } from "@/lib/supabase-server";
 
 const ANSWER_IMAGE_BUCKET_CANDIDATES = ["answer-images", "answers"] as const;
@@ -212,7 +215,15 @@ export async function POST(req: Request) {
     }
 
     if (question.userId) {
-      await createUserNotification({
+      // TEMP DEBUG: 本番確認後に削除
+      console.log("[TEMP_NOTIFICATION_TRACE] answer notification reached", {
+        questionId: question.id,
+        answerId: answer.id,
+        recipientUserId: question.userId,
+        actorUserId: user.id,
+      });
+
+      await safeCreateUserNotification({
         userId: question.userId,
         actorUserId: user.id,
         type: NOTIFICATION_TYPES.ANSWER_CREATED,
@@ -222,10 +233,20 @@ export async function POST(req: Request) {
           questionId: question.id,
           answerId: answer.id,
         },
+        context: "answer_created",
       });
 
       if (negotiationId) {
-        await createUserNotification({
+        // TEMP DEBUG: 本番確認後に削除
+        console.log("[TEMP_NOTIFICATION_TRACE] negotiation notification reached", {
+          questionId: question.id,
+          answerId: answer.id,
+          recipientUserId: question.userId,
+          actorUserId: user.id,
+          negotiationId,
+        });
+
+        await safeCreateUserNotification({
           userId: question.userId,
           actorUserId: user.id,
           type: NOTIFICATION_TYPES.NEGOTIATION_CREATED,
@@ -236,6 +257,7 @@ export async function POST(req: Request) {
             answerId: answer.id,
             negotiationId,
           },
+          context: "negotiation_created",
         });
       }
     }

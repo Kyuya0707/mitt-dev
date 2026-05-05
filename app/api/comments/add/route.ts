@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { NOTIFICATION_TYPES, createUserNotification } from "@/lib/notifications";
+import {
+  NOTIFICATION_TYPES,
+  safeCreateUserNotification,
+} from "@/lib/notifications";
 
 export async function POST(req: Request) {
   try {
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
     });
 
     if (answer.userId) {
-      await createUserNotification({
+      await safeCreateUserNotification({
         userId: answer.userId,
         actorUserId: user.id,
         type: NOTIFICATION_TYPES.COMMENT_CREATED,
@@ -83,6 +86,7 @@ export async function POST(req: Request) {
           answerId: answer.id,
           commentId: newComment.id,
         },
+        context: "comment_created",
       });
     }
 
