@@ -41,6 +41,21 @@ function LoginForm() {
         return;
       }
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.access_token) {
+        await fetch("/api/auth/login-notification", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }).catch((notificationError) => {
+          console.error("Login notification request failed:", notificationError);
+        });
+      }
+
       window.location.assign(redirectTo);
     } catch (err) {
       console.error(err);

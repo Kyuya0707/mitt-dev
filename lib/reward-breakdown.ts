@@ -8,11 +8,12 @@ export function getQuestionRewardBreakdown(rewardAmount: number) {
     grossAmount * QUESTION_PLATFORM_FEE_RATE
   );
   const answererNetAmount = grossAmount - platformFeeAmount;
+  const checkoutAmount = grossAmount + platformFeeAmount;
 
   return {
     grossAmount,
     platformFeeAmount,
     answererNetAmount,
-    checkoutAmount: grossAmount,
+    checkoutAmount,
   };
 }

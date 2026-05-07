@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { verifyBestViewCheckoutSession } from "@/lib/best-view-payment";
 import { verifyQuestionCheckoutSession } from "@/lib/question-payment";
 import { verifyNegotiationCheckoutSession } from "@/lib/negotiation-payment";
+import { getBestViewRevenueBreakdown } from "@/lib/best-view-breakdown";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 
 import QuestionImages from "./QuestionImages";
@@ -201,6 +202,7 @@ export default async function Page({
   }
 
   const rewardBreakdown = getQuestionRewardBreakdown(question.rewardAmount);
+  const bestViewBreakdown = getBestViewRevenueBreakdown(question.viewerPrice ?? 0);
 
   const showQuestionPaymentSuccess =
     !!questionPaymentVerification?.ok && questionPaymentVerification.isPaid;
@@ -427,6 +429,31 @@ export default async function Page({
           ? `${question.viewerPrice.toLocaleString("ja-JP")}円`
           : "未設定"}
       </div>
+      {question.viewerPrice && question.viewerPrice > 0 && (
+        <div className="mt-2 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-gray-700">
+          <div className="font-semibold text-gray-900">BEST閲覧料の分配</div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg bg-white px-3 py-2">
+              <div className="text-xs text-gray-500">質問者への報酬</div>
+              <div className="font-semibold text-gray-900">
+                {bestViewBreakdown.questionOwnerAmount.toLocaleString("ja-JP")}円
+              </div>
+            </div>
+            <div className="rounded-lg bg-white px-3 py-2">
+              <div className="text-xs text-gray-500">回答者への報酬</div>
+              <div className="font-semibold text-gray-900">
+                {bestViewBreakdown.answerOwnerAmount.toLocaleString("ja-JP")}円
+              </div>
+            </div>
+            <div className="rounded-lg bg-white px-3 py-2">
+              <div className="text-xs text-gray-500">プラットフォーム手数料</div>
+              <div className="font-semibold text-gray-900">
+                {bestViewBreakdown.platformFeeAmount.toLocaleString("ja-JP")}円
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {isAuthor && (
         <ViewerPriceEditor
           questionId={question.id}

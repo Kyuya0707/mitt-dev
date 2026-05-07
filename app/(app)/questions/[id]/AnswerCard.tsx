@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import type { AnswerComment, QuestionAnswer } from "./types";
 import { getPublicUserDisplayName } from "@/lib/public-user-display";
 import { toJapaneseErrorMessage } from "@/lib/errors";
+import { getBestViewRevenueBreakdown } from "@/lib/best-view-breakdown";
 
 type AnswerCardProps = {
   ans: QuestionAnswer;
@@ -70,6 +71,7 @@ export default function AnswerCard({
   const proposedAmount = negotiation ? Number(negotiation.proposedAmount) : null;
   const chargedAmount =
     proposedAmount !== null ? proposedAmount - questionRewardAmount : null;
+  const bestViewBreakdown = getBestViewRevenueBreakdown(viewerPrice ?? 0);
   const shouldShowNegotiationManagement =
     !!negotiation && isPending && canManageNegotiation;
   const shouldShowPendingNegotiationNotice =
@@ -362,6 +364,28 @@ export default function AnswerCard({
                 </Link>
                 に同意したものとみなします。
               </p>
+              {viewerPrice && viewerPrice > 0 && (
+                <div className="mt-3 grid gap-2 rounded-lg border border-yellow-100 bg-white p-3 text-xs text-gray-600 sm:grid-cols-3">
+                  <div>
+                    <div className="text-gray-500">質問者への報酬</div>
+                    <div className="font-semibold text-gray-900">
+                      {bestViewBreakdown.questionOwnerAmount.toLocaleString("ja-JP")}円
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">回答者への報酬</div>
+                    <div className="font-semibold text-gray-900">
+                      {bestViewBreakdown.answerOwnerAmount.toLocaleString("ja-JP")}円
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">プラットフォーム手数料</div>
+                    <div className="font-semibold text-gray-900">
+                      {bestViewBreakdown.platformFeeAmount.toLocaleString("ja-JP")}円
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <Link

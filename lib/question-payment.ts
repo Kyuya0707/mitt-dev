@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { createCategoryQuestionNotifications } from "@/lib/notifications";
+import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 
 type VerifyQuestionCheckoutSessionResult =
   | {
@@ -132,6 +133,11 @@ async function finalizeQuestionCheckoutSession(
   }
 
   const purchaseUserId = sessionUserId ?? current.userId;
+  const rewardBreakdown = getQuestionRewardBreakdown(current.rewardAmount);
+  const checkoutAmount =
+    typeof session.amount_total === "number" && session.amount_total > 0
+      ? session.amount_total
+      : rewardBreakdown.checkoutAmount;
 
   const existingBySession = sessionId
     ? await prisma.purchase.findUnique({
@@ -181,7 +187,7 @@ async function finalizeQuestionCheckoutSession(
         data: {
           userId: purchaseUserId,
           questionId,
-          amount: current.rewardAmount,
+          amount: checkoutAmount,
           currency: (session.currency ?? "jpy").toLowerCase(),
           stripeSessionId: sessionId ?? null,
           status: "PAID",

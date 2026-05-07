@@ -18,6 +18,21 @@ export default function LoginPage() {
     if (error) {
       setMessage("ログインに失敗しました: " + error.message);
     } else {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.access_token) {
+        await fetch("/api/auth/login-notification", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }).catch((notificationError) => {
+          console.error("Login notification request failed:", notificationError);
+        });
+      }
+
       window.location.href = "/"; // ✔ トップに戻す
     }
   };

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import { getBaseUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs"; // Stripe/Prismaなので明示（Edge回避）
@@ -67,7 +68,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const amount = q.rewardAmount;
+    const rewardBreakdown = getQuestionRewardBreakdown(q.rewardAmount);
+    const amount = rewardBreakdown.checkoutAmount;
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
         { error: "Invalid rewardAmount" },
@@ -99,6 +101,9 @@ export async function POST(req: Request) {
         kind: "question_post",
         questionId,
         userId: currentUser.id,
+        rewardAmount: String(q.rewardAmount),
+        platformFeeAmount: String(rewardBreakdown.platformFeeAmount),
+        checkoutAmount: String(amount),
       },
       success_url: `${baseUrl}/questions/${questionId}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/questions/${questionId}?cancel=1`,

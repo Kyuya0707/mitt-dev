@@ -331,32 +331,20 @@ export default function NewQuestionPage() {
               <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-gray-700">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="rounded-lg bg-white px-3 py-2">
-                    <div className="text-xs text-gray-500">決済額</div>
-                    <div className="font-semibold text-gray-900">
-                      {formatYen(rewardBreakdown.checkoutAmount)}円
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-white px-3 py-2">
-                    <div className="text-xs text-gray-500">回答者への受取予定額</div>
-                    <div className="font-semibold text-gray-900">
-                      {formatYen(rewardBreakdown.answererNetAmount)}円
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-white px-3 py-2">
                     <div className="text-xs text-gray-500">プラットフォーム手数料</div>
                     <div className="font-semibold text-gray-900">
                       {formatYen(rewardBreakdown.platformFeeAmount)}円
                     </div>
                   </div>
                   <div className="rounded-lg bg-white px-3 py-2">
-                    <div className="text-xs text-gray-500">設定した報酬額</div>
+                    <div className="text-xs text-gray-500">決済額</div>
                     <div className="font-semibold text-gray-900">
-                      {formatYen(rewardBreakdown.grossAmount)}円
+                      {formatYen(rewardBreakdown.checkoutAmount)}円
                     </div>
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-6 text-gray-600">
-                  設定した報酬額がそのまま決済額です。この金額からプラットフォーム手数料10%を差し引いた額が、BEST回答者に支払われます。
+                  設定した報酬額にプラットフォーム手数料10%を加算した金額を決済します。
                 </p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">

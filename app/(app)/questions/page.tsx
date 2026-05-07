@@ -80,6 +80,9 @@ export default function QuestionsPage() {
     initialParams?.get("category") || ""
   );
   const [sort, setSort] = useState(initialParams?.get("sort") || "new");
+  const [excludeBestSelected, setExcludeBestSelected] = useState(
+    initialParams?.get("excludeBest") === "1"
+  );
   const [popularTags, setPopularTags] = useState<string[]>([]);
   const [searchHistory, setSearchHistory] = useState<string[]>(
     typeof window !== "undefined"
@@ -125,6 +128,7 @@ export default function QuestionsPage() {
   const filteredQuestions = questions
     .filter((q) => (query ? q.title.includes(query) || q.content.includes(query) : true))
     .filter((q) => (selectedCategory ? q.category?.name === selectedCategory : true))
+    .filter((q) => (excludeBestSelected ? !q.bestAnswerId : true))
     .sort((a, b) => {
       if (sort === "new")
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -142,6 +146,7 @@ export default function QuestionsPage() {
     if (query) params.append("q", query);
     if (selectedCategory) params.append("category", selectedCategory);
     if (sort !== "new") params.append("sort", sort);
+    if (excludeBestSelected) params.append("excludeBest", "1");
 
     window.location.href = `/questions?${params.toString()}`;
   };
@@ -224,6 +229,15 @@ export default function QuestionsPage() {
           <option value="answers">回答数が多い順</option>
         </select>
 
+        <label className="flex items-center gap-2 rounded border px-3 py-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={excludeBestSelected}
+            onChange={(e) => setExcludeBestSelected(e.target.checked)}
+          />
+          <span>BEST選定済みを除く</span>
+        </label>
+
         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
           検索
         </button>
@@ -234,6 +248,7 @@ export default function QuestionsPage() {
             setQuery("");
             setSelectedCategory("");
             setSort("new");
+            setExcludeBestSelected(false);
             window.location.href = "/questions";
           }}
           className="text-gray-600 underline px-2 py-2 text-sm hover:text-gray-800"
