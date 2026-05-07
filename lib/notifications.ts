@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import {
   buildCommonEmailFooterHtml,
   buildCommonEmailFooterText,
+  SUPPORT_EMAIL,
 } from "@/lib/email-footer";
 
 export const NOTIFICATION_TYPES = {
@@ -44,7 +45,8 @@ type EmailPreferenceKey =
   | "emailOnBestSelected"
   | "emailOnNegotiationCreated"
   | "emailOnNegotiationAccepted"
-  | "emailOnCategoryQuestionCreated";
+  | "emailOnCategoryQuestionCreated"
+  | "emailOnLogin";
 
 const EMAIL_PREFERENCE_KEY_BY_TYPE: Record<NotificationType, EmailPreferenceKey> = {
   ANSWER_CREATED: "emailOnAnswerCreated",
@@ -54,6 +56,14 @@ const EMAIL_PREFERENCE_KEY_BY_TYPE: Record<NotificationType, EmailPreferenceKey>
   NEGOTIATION_ACCEPTED: "emailOnNegotiationAccepted",
   CATEGORY_QUESTION_CREATED: "emailOnCategoryQuestionCreated",
 };
+
+function formatNotificationDate(date: Date) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Tokyo",
+  }).format(date);
+}
 
 function getNotificationSubject(type: NotificationType) {
   switch (type) {
@@ -205,6 +215,99 @@ async function sendNotificationEmail(params: {
   }
 }
 
+async function sendLoginEmail(params: { to: string; loggedInAt: Date }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.NOTIFICATION_FROM_EMAIL;
+
+  if (!apiKey || !from) {
+    return;
+  }
+
+  const loggedInAtText = formatNotificationDate(params.loggedInAt);
+  const resetPasswordUrl = toAbsoluteUrl("/forgot-password");
+  const escapedResetPasswordUrl = resetPasswordUrl
+    ? escapeHtml(resetPasswordUrl)
+    : null;
+
+  const subject = "【Know Value】ログインがありました";
+  const text = [
+    subject,
+    "",
+    "Know Value へのログインを確認しました。",
+    `ログイン日時: ${loggedInAtText}`,
+    "",
+    "お心当たりがない場合は、すぐにパスワードを再設定してください。",
+    ...(resetPasswordUrl ? [resetPasswordUrl, ""] : []),
+    `${SUPPORT_EMAIL} までご連絡ください。`,
+    "",
+    buildCommonEmailFooterText(),
+  ].join("\n");
+
+  const html = `
+    <div style="background:#f5f7fb;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111827;">
+      <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+        <div style="padding:24px 24px 8px 24px;">
+          <div style="font-size:12px;letter-spacing:0.08em;color:#6b7280;font-weight:600;">KnowValue Security Notice</div>
+          <h1 style="margin:12px 0 0 0;font-size:22px;line-height:1.4;color:#111827;">${escapeHtml(
+            subject
+          )}</h1>
+        </div>
+        <div style="padding:24px;">
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;font-size:15px;line-height:1.8;color:#374151;">
+            <div>Know Value へのログインを確認しました。</div>
+            <div style="margin-top:8px;"><strong>ログイン日時:</strong> ${escapeHtml(
+              loggedInAtText
+            )}</div>
+            <div style="margin-top:12px;">お心当たりがない場合は、すぐにパスワードを再設定してください。</div>
+          </div>
+          ${
+            escapedResetPasswordUrl
+              ? `<div style="margin-top:24px;">
+                  <a href="${escapedResetPasswordUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;">
+                    パスワードを再設定する
+                  </a>
+                </div>`
+              : ""
+          }
+          <div style="margin-top:16px;font-size:13px;line-height:1.8;color:#4b5563;">
+            ご不明点は <a href="mailto:${escapeHtml(
+              SUPPORT_EMAIL
+            )}" style="color:#2563eb;">${escapeHtml(
+    SUPPORT_EMAIL
+  )}</a> までご連絡ください。
+          </div>
+          ${buildCommonEmailFooterHtml(escapeHtml)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [params.to],
+      subject,
+      text,
+      html,
+    }),
+  });
+
+  const responseText = await response.text().catch(() => "");
+
+  if (!response.ok) {
+    console.error("[notifications][login-email] resend error", {
+      status: response.status,
+      body: responseText,
+    });
+    throw new Error(`Resend API error: ${response.status} ${responseText}`);
+  }
+}
+
 export async function createUserNotification({
   userId,
   actorUserId,
@@ -310,5 +413,29 @@ export async function createCategoryQuestionNotifications(input: {
       },
       context: "category_question_created",
     });
+  }
+}
+
+export async function sendLoginNotificationEmail(input: {
+  userId: string;
+  email: string;
+  loggedInAt?: Date;
+}) {
+  try {
+    const preference = await ensureNotificationPreference(input.userId);
+
+    if (!preference.emailOnLogin) {
+      return false;
+    }
+
+    await sendLoginEmail({
+      to: input.email,
+      loggedInAt: input.loggedInAt ?? new Date(),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Login notification email failed:", error);
+    return false;
   }
 }

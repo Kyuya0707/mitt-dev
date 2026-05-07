@@ -315,6 +315,7 @@ model NotificationPreference {
   emailOnNegotiationCreated      Boolean @default(true)
   emailOnNegotiationAccepted     Boolean @default(true)
   emailOnCategoryQuestionCreated Boolean @default(true)
+  emailOnLogin                   Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id])
 }

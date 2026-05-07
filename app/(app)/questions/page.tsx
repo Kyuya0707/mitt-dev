@@ -11,6 +11,7 @@ type QuestionListItem = {
   createdAt: string;
   rewardAmount: number;
   isPaid: boolean;
+  bestAnswerId?: string | null;
   category?: {
     name?: string | null;
   } | null;
@@ -268,6 +269,11 @@ export default function QuestionsPage() {
             <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded">
               {q.category?.name}
             </span>
+            {q.bestAnswerId && (
+              <span className="inline-block mt-2 ml-2 rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800">
+                👑 BEST選定済み
+              </span>
+            )}
             {!q.isPaid && (
               <span className="inline-block mt-2 ml-2 px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded">
                 🔒 未公開（決済待ち）

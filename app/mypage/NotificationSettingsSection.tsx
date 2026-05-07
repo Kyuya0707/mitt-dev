@@ -9,6 +9,7 @@ type NotificationPreferences = {
   emailOnNegotiationCreated: boolean;
   emailOnNegotiationAccepted: boolean;
   emailOnCategoryQuestionCreated: boolean;
+  emailOnLogin: boolean;
 };
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -18,6 +19,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   emailOnNegotiationCreated: true,
   emailOnNegotiationAccepted: true,
   emailOnCategoryQuestionCreated: true,
+  emailOnLogin: true,
 };
 
 const SETTINGS: Array<{
@@ -33,6 +35,7 @@ const SETTINGS: Array<{
     key: "emailOnCategoryQuestionCreated",
     label: "自分の興味カテゴリに一致する質問が公開された",
   },
+  { key: "emailOnLogin", label: "ログインがあった" },
 ];
 
 export default function NotificationSettingsSection() {
@@ -60,6 +63,10 @@ export default function NotificationSettingsSection() {
             emailOnCategoryQuestionCreated: Boolean(
               data.emailOnCategoryQuestionCreated
             ),
+            emailOnLogin:
+              data.emailOnLogin === undefined
+                ? true
+                : Boolean(data.emailOnLogin),
           });
         }
       } finally {

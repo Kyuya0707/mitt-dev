@@ -18,9 +18,6 @@ export default function AppHeader() {
         <Link href="/questions/new" className="text-gray-700 hover:underline">
           質問投稿
         </Link>
-        <Link href="/terms" className="text-gray-700 hover:underline">
-          利用規約
-        </Link>
         <AppUserNav />
       </nav>
     </header>

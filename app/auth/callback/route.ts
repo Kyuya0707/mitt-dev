@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { resolveAuthRedirect } from "@/lib/auth-redirect";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
+import { sendLoginNotificationEmail } from "@/lib/notifications";
 import { supabaseServer } from "@/lib/supabase-server";
 
 export async function GET(request: Request) {
@@ -49,6 +50,13 @@ export async function GET(request: Request) {
           ? metadata.pp_consent_version
           : null,
     });
+
+    if (code) {
+      await sendLoginNotificationEmail({
+        userId: user.id,
+        email: user.email,
+      });
+    }
   }
 
   return NextResponse.redirect(new URL(redirectTo, url.origin));

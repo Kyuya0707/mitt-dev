@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { verifyBestViewCheckoutSession } from "@/lib/best-view-payment";
 import { verifyQuestionCheckoutSession } from "@/lib/question-payment";
 import { verifyNegotiationCheckoutSession } from "@/lib/negotiation-payment";
+import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 
 import QuestionImages from "./QuestionImages";
 import QuestionReadClient from "./QuestionReadClient";
@@ -199,6 +200,8 @@ export default async function Page({
     return <div className="p-6">質問が見つかりません。</div>;
   }
 
+  const rewardBreakdown = getQuestionRewardBreakdown(question.rewardAmount);
+
   const showQuestionPaymentSuccess =
     !!questionPaymentVerification?.ok && questionPaymentVerification.isPaid;
   const showQuestionPaymentPending =
@@ -390,8 +393,33 @@ export default async function Page({
       )}
 
       {/* 報酬 */}
-      <div className="mt-6 p-4 bg-gray-100 rounded font-bold">
-        報酬額：{question.rewardAmount}円
+      <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+        <div className="font-bold text-gray-900">
+          表示報酬：{rewardBreakdown.grossAmount.toLocaleString("ja-JP")}円
+        </div>
+        <div className="mt-3 grid gap-3 text-sm text-gray-700 sm:grid-cols-3">
+          <div className="rounded-lg bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">受取予定額</div>
+            <div className="font-semibold text-gray-900">
+              {rewardBreakdown.answererNetAmount.toLocaleString("ja-JP")}円
+            </div>
+          </div>
+          <div className="rounded-lg bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">手数料</div>
+            <div className="font-semibold text-gray-900">
+              {rewardBreakdown.platformFeeAmount.toLocaleString("ja-JP")}円
+            </div>
+          </div>
+          <div className="rounded-lg bg-white px-3 py-2">
+            <div className="text-xs text-gray-500">質問者の決済額</div>
+            <div className="font-semibold text-gray-900">
+              {rewardBreakdown.checkoutAmount.toLocaleString("ja-JP")}円
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-6 text-gray-600">
+          この質問では、表示報酬額のうち10%がプラットフォーム手数料となり、残りがBEST回答者へ支払われます。
+        </p>
       </div>
       <div className="mt-2 p-4 bg-gray-100 rounded">
         BEST閲覧価格：
