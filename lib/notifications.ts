@@ -1,5 +1,9 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import {
+  buildCommonEmailFooterHtml,
+  buildCommonEmailFooterText,
+} from "@/lib/email-footer";
 
 export const NOTIFICATION_TYPES = {
   ANSWER_CREATED: "ANSWER_CREATED",
@@ -111,6 +115,8 @@ function buildEmailContent(params: {
     textLines.push("", absoluteUrl);
   }
 
+  textLines.push("", buildCommonEmailFooterText());
+
   const html = `
     <div style="background:#f5f7fb;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111827;">
       <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
@@ -134,6 +140,7 @@ function buildEmailContent(params: {
                 </div>`
               : ""
           }
+          ${buildCommonEmailFooterHtml(escapeHtml)}
         </div>
       </div>
     </div>

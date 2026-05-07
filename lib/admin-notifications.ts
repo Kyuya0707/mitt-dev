@@ -1,3 +1,8 @@
+import {
+  buildCommonEmailFooterHtml,
+  buildCommonEmailFooterText,
+} from "@/lib/email-footer";
+
 type AdminPayoutNotificationInput = {
   payoutType: "question_reward" | "best_view";
   amount: number;
@@ -53,6 +58,8 @@ function buildAdminPayoutEmailContent(input: AdminPayoutNotificationInput) {
     `questionId: ${input.questionId}`,
     `answerId: ${input.answerId}`,
     `管理画面: ${link}`,
+    "",
+    buildCommonEmailFooterText(),
   ].join("\n");
 
   const html = `
@@ -86,6 +93,7 @@ function buildAdminPayoutEmailContent(input: AdminPayoutNotificationInput) {
               link
             )}</a>
           </div>
+          ${buildCommonEmailFooterHtml(escapeHtml)}
         </div>
       </div>
     </div>
