@@ -40,6 +40,12 @@ type DryRunSummary = {
   storageFiles: number;
 };
 
+type PurgeState = {
+  authUsers: AuthUserSummary[];
+  storageTargets: StorageTarget[];
+  summary: DryRunSummary;
+};
+
 const prisma = new PrismaClient();
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -172,95 +178,28 @@ function dedupeStorageTargets(targets: Array<StorageTarget | null>) {
 
 async function collectState() {
   const authUsers = await listAllAuthUsers();
-
-  const [
-    prismaUsers,
-    notificationPreferences,
-    questions,
-    answers,
-    purchases,
-    bestViewRevenueShares,
-    bestViewPayouts,
-    negotiations,
-    comments,
-    answerLikes,
-    answerReads,
-    notifications,
-    payouts,
-    reports,
-    questionImages,
-    answerImages,
-  ] = await Promise.all([
-    prisma.user.findMany({
-      select: { id: true, email: true, username: true, name: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.notificationPreference.findMany({
-      select: { id: true, userId: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.question.findMany({
-      select: { id: true, userId: true, title: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.answer.findMany({
-      select: { id: true, userId: true, questionId: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.purchase.findMany({
-      select: { id: true, userId: true, questionId: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.bestViewRevenueShare.findMany({
-      select: { id: true, purchaseId: true, questionId: true, answerId: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.bestViewPayout.findMany({
-      select: { id: true, revenueShareId: true, recipientUserId: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.negotiation.findMany({
-      select: { id: true, answerId: true, questionId: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.comment.findMany({
-      select: { id: true, userId: true, answerId: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.answerLike.findMany({
-      select: { userId: true, answerId: true, createdAt: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.answerRead.findMany({
-      select: { id: true, userId: true, answerId: true },
-      orderBy: { readAt: "asc" },
-    }),
-    prisma.notification.findMany({
-      select: { id: true, userId: true, type: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.payout.findMany({
-      select: { id: true, userId: true, amount: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.report.findMany({
-      select: {
-        id: true,
-        reporterId: true,
-        questionId: true,
-        answerId: true,
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.questionImage.findMany({
-      select: { id: true, questionId: true, url: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.answerImage.findMany({
-      select: { id: true, answerId: true, url: true },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const prismaUsers = await prisma.user.count();
+  const notificationPreferences = await prisma.notificationPreference.count();
+  const questions = await prisma.question.count();
+  const answers = await prisma.answer.count();
+  const purchases = await prisma.purchase.count();
+  const bestViewRevenueShares = await prisma.bestViewRevenueShare.count();
+  const bestViewPayouts = await prisma.bestViewPayout.count();
+  const negotiations = await prisma.negotiation.count();
+  const comments = await prisma.comment.count();
+  const answerLikes = await prisma.answerLike.count();
+  const answerReads = await prisma.answerRead.count();
+  const notifications = await prisma.notification.count();
+  const payouts = await prisma.payout.count();
+  const reports = await prisma.report.count();
+  const questionImages = await prisma.questionImage.findMany({
+    select: { id: true, url: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const answerImages = await prisma.answerImage.findMany({
+    select: { id: true, url: true },
+    orderBy: { createdAt: "asc" },
+  });
 
   const storageTargets = dedupeStorageTargets([
     ...authUsers.map((user) =>
@@ -276,27 +215,6 @@ async function collectState() {
 
   const summary: DryRunSummary = {
     authUsers: authUsers.length,
-    prismaUsers: prismaUsers.length,
-    notificationPreferences: notificationPreferences.length,
-    questions: questions.length,
-    answers: answers.length,
-    purchases: purchases.length,
-    bestViewRevenueShares: bestViewRevenueShares.length,
-    bestViewPayouts: bestViewPayouts.length,
-    negotiations: negotiations.length,
-    comments: comments.length,
-    answerLikes: answerLikes.length,
-    answerReads: answerReads.length,
-    notifications: notifications.length,
-    payouts: payouts.length,
-    reports: reports.length,
-    questionImages: questionImages.length,
-    answerImages: answerImages.length,
-    storageFiles: storageTargets.length,
-  };
-
-  return {
-    authUsers,
     prismaUsers,
     notificationPreferences,
     questions,
@@ -311,11 +229,16 @@ async function collectState() {
     notifications,
     payouts,
     reports,
-    questionImages,
-    answerImages,
+    questionImages: questionImages.length,
+    answerImages: answerImages.length,
+    storageFiles: storageTargets.length,
+  };
+
+  return {
+    authUsers,
     storageTargets,
     summary,
-  };
+  } satisfies PurgeState;
 }
 
 async function removeStorageFiles(targets: StorageTarget[]) {
@@ -338,7 +261,7 @@ async function removeStorageFiles(targets: StorageTarget[]) {
   }
 }
 
-async function deleteAllUserLinkedData(state: Awaited<ReturnType<typeof collectState>>) {
+async function deleteAllUserLinkedData(state: PurgeState) {
   // Storage は DB トランザクションに含められないため最後に削除する。
   // 途中失敗時は、DB レコード欠損よりも孤立ファイルが残るほうが安全。
   await prisma.$transaction(async (tx) => {
