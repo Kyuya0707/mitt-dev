@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { CATEGORY_NAMES } from "@/lib/category-options";
 import { validateUsername } from "@/lib/username";
@@ -139,6 +140,7 @@ export default function SignupPage() {
   // ✅ PP同意
   const [ppAgreed, setPpAgreed] = useState(false);
   const [ppOpen, setPpOpen] = useState(false);
+  const [legalAgreed, setLegalAgreed] = useState(false);
 
   // 画像選択
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,9 +167,14 @@ export default function SignupPage() {
       return;
     }
     
+    if (!legalAgreed) {
+      setErrorMsg("利用規約とプライバシーポリシーへの同意が必要です。");
+      return;
+    }
+
     // ✅ PP同意必須
     if (!ppAgreed) {
-      setErrorMsg("プライバシーポリシーに同意してください。");
+      setErrorMsg("副業・税務に関する同意が必要です。");
       return;
     }
 
@@ -403,6 +410,28 @@ export default function SignupPage() {
           </select>
         </div>
 
+        <div className="rounded border p-3 bg-gray-50">
+          <div className="flex items-start gap-2">
+            <input
+              id="legal-consent"
+              type="checkbox"
+              className="mt-1"
+              checked={legalAgreed}
+              onChange={(e) => setLegalAgreed(e.target.checked)}
+            />
+            <label htmlFor="legal-consent" className="text-sm text-gray-700">
+              <Link href="/terms" className="font-semibold text-blue-600 underline">
+                利用規約
+              </Link>
+              <span> と </span>
+              <Link href="/privacy" className="font-semibold text-blue-600 underline">
+                プライバシーポリシー
+              </Link>
+              <span> に同意します（必須）</span>
+            </label>
+          </div>
+        </div>
+
         {/* ✅ PP同意（必須） */}
         <div className="rounded border p-3 bg-gray-50">
           <div className="flex items-start gap-2">
@@ -414,7 +443,7 @@ export default function SignupPage() {
               onChange={(e) => setPpAgreed(e.target.checked)}
             />
             <label htmlFor="pp" className="text-sm text-gray-700">
-              <span className="font-semibold">プライバシーポリシー</span>に同意します（必須）
+              <span className="font-semibold">副業・税務に関する案内</span>に同意します（必須）
               <div className="text-xs text-gray-500 mt-1">
                 同意日時・同意バージョンは保存されます（{PP_CONSENT_VERSION}）
               </div>
@@ -426,13 +455,16 @@ export default function SignupPage() {
             onClick={() => setPpOpen(true)}
             className="mt-2 text-sm text-blue-600 underline"
           >
-            プライバシーポリシー全文を読む
+            副業・税務に関する案内全文を読む
           </button>
         </div>
 
         {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
 
-        <button className="w-full bg-blue-600 text-white py-2 rounded font-semibold">
+        <button
+          disabled={!legalAgreed || !ppAgreed}
+          className="w-full rounded bg-blue-600 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
           登録する
         </button>
       </form>
@@ -446,7 +478,7 @@ export default function SignupPage() {
           />
           <div className="relative z-10 w-[92vw] max-w-2xl max-h-[80vh] bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b">
-              <div className="font-bold">プライバシーポリシー</div>
+              <div className="font-bold">副業・税務に関する案内</div>
               <button
                 type="button"
                 onClick={() => setPpOpen(false)}

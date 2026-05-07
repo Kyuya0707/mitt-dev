@@ -338,18 +338,31 @@ export default function AnswerCard({
             </p>
           )}
           {currentUserId ? (
-            <button
-              type="button"
-              onClick={handleBestViewCheckout}
-              disabled={bestCheckoutLoading || !viewerPrice || viewerPrice <= 0}
-              className="px-4 py-2 rounded bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50"
-            >
-              {bestCheckoutLoading
-                ? "決済ページへ移動中..."
-                : viewerPrice && viewerPrice > 0
-                  ? `${viewerPrice.toLocaleString("ja-JP")}円でBEST回答を閲覧する`
-                  : "BEST回答を閲覧する"}
-            </button>
+            <div>
+              <button
+                type="button"
+                onClick={handleBestViewCheckout}
+                disabled={bestCheckoutLoading || !viewerPrice || viewerPrice <= 0}
+                className="px-4 py-2 rounded bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50"
+              >
+                {bestCheckoutLoading
+                  ? "決済ページへ移動中..."
+                  : viewerPrice && viewerPrice > 0
+                    ? `${viewerPrice.toLocaleString("ja-JP")}円でBEST回答を閲覧する`
+                    : "BEST回答を閲覧する"}
+              </button>
+              <p className="mt-2 text-xs leading-6 text-gray-500">
+                決済に進むことで、
+                <Link href="/terms" className="mx-1 text-blue-600 underline">
+                  利用規約
+                </Link>
+                および
+                <Link href="/refund-policy" className="mx-1 text-blue-600 underline">
+                  返金ポリシー
+                </Link>
+                に同意したものとみなします。
+              </p>
+            </div>
           ) : (
             <Link
               href={`/login?redirectTo=${encodeURIComponent(`/questions/${ans.questionId}`)}`}
@@ -408,6 +421,19 @@ export default function AnswerCard({
                   ? `※ 元の報酬額 ${questionRewardAmount.toLocaleString("ja-JP")}円 は支払い済みです。差額のみ追加決済されます`
                   : "※ 提案額が元の報酬額以下のため、追加決済はできません"}
               </div>
+              {chargedAmount !== null && chargedAmount > 0 && (
+                <p className="mt-2 text-xs leading-6 text-gray-500">
+                  決済に進むことで、
+                  <Link href="/terms" className="mx-1 text-blue-600 underline">
+                    利用規約
+                  </Link>
+                  および
+                  <Link href="/refund-policy" className="mx-1 text-blue-600 underline">
+                    返金ポリシー
+                  </Link>
+                  に同意したものとみなします。
+                </p>
+              )}
             </div>
           )}
 

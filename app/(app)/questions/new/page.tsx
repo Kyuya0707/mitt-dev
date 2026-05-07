@@ -430,6 +430,17 @@ export default function NewQuestionPage() {
                   ? "同意後に投稿できます"
                   : "投稿して支払いに進む"}
             </button>
+            <p className="text-xs leading-6 text-gray-500">
+              決済に進むことで、
+              <Link href="/terms" className="mx-1 text-blue-600 underline">
+                利用規約
+              </Link>
+              および
+              <Link href="/refund-policy" className="mx-1 text-blue-600 underline">
+                返金ポリシー
+              </Link>
+              に同意したものとみなします。
+            </p>
           </form>
         </>
       )}

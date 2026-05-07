@@ -14,7 +14,7 @@ export default function AppFooter() {
           特定商取引法に基づく表記
         </Link>
         <Link href="/refund-policy" className="hover:underline">
-          返金方針
+          返金ポリシー
         </Link>
         <a href="mailto:support@knowvalue.jp" className="hover:underline">
           お問い合わせ
