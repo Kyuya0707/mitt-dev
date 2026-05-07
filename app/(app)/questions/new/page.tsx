@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { ReactSortable } from "react-sortablejs";
+import { getBestViewRevenueBreakdown } from "@/lib/best-view-breakdown";
 import { MAX_VIEWER_PRICE_JPY } from "@/lib/viewer-price";
 import { toJapaneseErrorMessage } from "@/lib/errors";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
@@ -107,6 +108,7 @@ export default function NewQuestionPage() {
 
   const canSubmitQuestion = Boolean(ppConsentAt);
   const rewardBreakdown = getQuestionRewardBreakdown(rewardAmount);
+  const bestViewBreakdown = getBestViewRevenueBreakdown(viewerPrice);
 
   const handleRewardAmountChange = (value: string) => {
     setRewardAmount(value === "" ? 0 : Number(value));
@@ -398,6 +400,33 @@ export default function NewQuestionPage() {
               <p className="mt-1 text-xs text-gray-500">
                 現在: {formatYen(viewerPrice)}円
               </p>
+              {viewerPrice > 0 && (
+                <div className="mt-3 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-gray-700">
+                  <div className="font-semibold text-gray-900">BEST閲覧料の分配</div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-lg bg-white px-3 py-2">
+                      <div className="text-xs text-gray-500">質問者への報酬</div>
+                      <div className="font-semibold text-gray-900">
+                        {formatYen(bestViewBreakdown.questionOwnerAmount)}円
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-white px-3 py-2">
+                      <div className="text-xs text-gray-500">回答者への報酬</div>
+                      <div className="font-semibold text-gray-900">
+                        {formatYen(bestViewBreakdown.answerOwnerAmount)}円
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-white px-3 py-2">
+                      <div className="text-xs text-gray-500">
+                        プラットフォーム手数料
+                      </div>
+                      <div className="font-semibold text-gray-900">
+                        {formatYen(bestViewBreakdown.platformFeeAmount)}円
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 画像 */}
