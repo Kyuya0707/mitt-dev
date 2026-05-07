@@ -221,7 +221,7 @@ export default function WelcomePage() {
   };
 
   return (
-    <main className="min-h-dvh w-full bg-black text-white overflow-hidden">
+    <main className="relative isolate min-h-dvh w-full overflow-x-hidden bg-black text-white">
       {/* 背景：光のにじみ（黒×黄） */}
       <motion.div
         className="pointer-events-none absolute -top-28 -left-28 w-[28rem] h-[28rem] rounded-full bg-yellow-400 blur-[170px]"
