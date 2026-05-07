@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 type AdminNavProps = {
-  current: "payouts" | "best-view-payouts";
+  current: "dashboard" | "payouts" | "best-view-payouts";
 };
 
 function getLinkClass(active: boolean) {
@@ -23,6 +23,9 @@ export default function AdminNav({ current }: AdminNavProps) {
         マイページ
       </Link>
       <div className="mx-1 h-4 w-px bg-gray-300" />
+      <Link href="/admin" className={getLinkClass(current === "dashboard")}>
+        ダッシュボード
+      </Link>
       <Link
         href="/admin/payouts"
         className={getLinkClass(current === "payouts")}

@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 type ParsedArgs = {
   execute: boolean;
+  confirmPurge: boolean;
 };
 
 type AuthUserSummary = {
@@ -21,9 +22,12 @@ type StorageTarget = {
 type DryRunSummary = {
   authUsers: number;
   prismaUsers: number;
+  notificationPreferences: number;
   questions: number;
   answers: number;
   purchases: number;
+  bestViewRevenueShares: number;
+  bestViewPayouts: number;
   negotiations: number;
   comments: number;
   answerLikes: number;
@@ -42,6 +46,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   const executeArg = argv.find((arg) => arg.startsWith("--execute="));
   return {
     execute: executeArg?.split("=")[1] === "true",
+    confirmPurge: process.env.CONFIRM_PURGE === "YES",
   };
 }
 
@@ -63,6 +68,23 @@ function getSupabaseAdmin() {
       persistSession: false,
     },
   });
+}
+
+function sanitizeDatabaseTarget(databaseUrl: string) {
+  try {
+    const url = new URL(databaseUrl);
+    return {
+      host: url.hostname,
+      database: url.pathname.replace(/^\//, ""),
+      sslmode: url.searchParams.get("sslmode"),
+    };
+  } catch {
+    return {
+      host: "unknown",
+      database: "unknown",
+      sslmode: null,
+    };
+  }
 }
 
 async function listAllAuthUsers() {
@@ -153,9 +175,12 @@ async function collectState() {
 
   const [
     prismaUsers,
+    notificationPreferences,
     questions,
     answers,
     purchases,
+    bestViewRevenueShares,
+    bestViewPayouts,
     negotiations,
     comments,
     answerLikes,
@@ -170,6 +195,10 @@ async function collectState() {
       select: { id: true, email: true, username: true, name: true },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.notificationPreference.findMany({
+      select: { id: true, userId: true },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.question.findMany({
       select: { id: true, userId: true, title: true },
       orderBy: { createdAt: "asc" },
@@ -180,6 +209,14 @@ async function collectState() {
     }),
     prisma.purchase.findMany({
       select: { id: true, userId: true, questionId: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.bestViewRevenueShare.findMany({
+      select: { id: true, purchaseId: true, questionId: true, answerId: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.bestViewPayout.findMany({
+      select: { id: true, revenueShareId: true, recipientUserId: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.negotiation.findMany({
@@ -240,9 +277,12 @@ async function collectState() {
   const summary: DryRunSummary = {
     authUsers: authUsers.length,
     prismaUsers: prismaUsers.length,
+    notificationPreferences: notificationPreferences.length,
     questions: questions.length,
     answers: answers.length,
     purchases: purchases.length,
+    bestViewRevenueShares: bestViewRevenueShares.length,
+    bestViewPayouts: bestViewPayouts.length,
     negotiations: negotiations.length,
     comments: comments.length,
     answerLikes: answerLikes.length,
@@ -258,9 +298,12 @@ async function collectState() {
   return {
     authUsers,
     prismaUsers,
+    notificationPreferences,
     questions,
     answers,
     purchases,
+    bestViewRevenueShares,
+    bestViewPayouts,
     negotiations,
     comments,
     answerLikes,
@@ -301,9 +344,12 @@ async function deleteAllUserLinkedData(state: Awaited<ReturnType<typeof collectS
   await prisma.$transaction(async (tx) => {
     await tx.report.deleteMany({});
     await tx.notification.deleteMany({});
+    await tx.notificationPreference.deleteMany({});
     await tx.answerRead.deleteMany({});
     await tx.answerLike.deleteMany({});
     await tx.comment.deleteMany({});
+    await tx.bestViewPayout.deleteMany({});
+    await tx.bestViewRevenueShare.deleteMany({});
     await tx.purchase.deleteMany({});
     await tx.payout.deleteMany({});
     await tx.negotiation.deleteMany({});
@@ -332,10 +378,20 @@ function printSection(title: string, value: unknown) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const databaseTarget = sanitizeDatabaseTarget(requireEnv("DATABASE_URL"));
   const state = await collectState();
+
+  printSection("SAFETY CHECK", {
+    databaseTarget,
+    execute: args.execute,
+    confirmPurge: args.confirmPurge,
+    backupRecommended:
+      "本番実行前に Supabase/PostgreSQL のバックアップ取得を推奨します。",
+  });
 
   printSection("DRY RUN SUMMARY", {
     execute: args.execute,
+    confirmPurge: args.confirmPurge,
     ...state.summary,
   });
 
@@ -352,9 +408,15 @@ async function main() {
 
   if (!args.execute) {
     console.log(
-      "\nDry-run only. Use --execute=true to delete Prisma data, referenced Storage files, and Supabase Auth users."
+      "\nDry-run only. Backup を取得したうえで、CONFIRM_PURGE=YES と --execute=true を付けた場合のみ削除が実行されます。"
     );
     return;
+  }
+
+  if (!args.confirmPurge) {
+    throw new Error(
+      "CONFIRM_PURGE=YES が設定されていないため削除を中止しました。"
+    );
   }
 
   await deleteAllUserLinkedData(state);

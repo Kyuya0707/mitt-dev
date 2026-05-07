@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import type { User } from "@supabase/supabase-js";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
@@ -179,7 +180,7 @@ function FaqItem({
 
 export default function WelcomePage() {
   const year = useMemo(() => new Date().getFullYear(), []);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const supabase = supabaseBrowser();
@@ -281,12 +282,12 @@ export default function WelcomePage() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.0, delay: 0.55 }}
               >
-                闇の中から、本当に価値ある情報を見つけ出す。
+                Know Value は、実体験や知見に価値をつける報酬付きQ&Aサービスです。
                 <br />
-                嘘やノイズが溢れる時代に、
+                質問者は報酬を設定して質問でき、回答者は経験や知識を回答として届けられます。
                 <br />
                 <span className="text-yellow-300 font-semibold">
-                  あなたの経験は「価値」になる。
+                  BEST回答に選ばれた回答者には、報酬が支払われます。
                 </span>
               </motion.p>
 
@@ -296,7 +297,7 @@ export default function WelcomePage() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.0, delay: 0.75 }}
               >
-                現在は先行公開中。順次機能を解放しています。
+                現在は小規模β版として運用しています。
               </motion.p>
 
               {/* ✅ CTA（ここだけログイン状態で出し分け） */}
@@ -309,10 +310,10 @@ export default function WelcomePage() {
                 {user ? (
                   <>
                     <Link
-                      href="/coming-soon"
+                      href="/questions"
                       className="w-full sm:w-auto px-6 py-3 rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-300 transition"
                     >
-                      続ける（開発状況へ）
+                      質問一覧を見る
                     </Link>
 
                     <Link
@@ -320,6 +321,13 @@ export default function WelcomePage() {
                       className="w-full sm:w-auto px-6 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
                     >
                       マイページへ
+                    </Link>
+
+                    <Link
+                      href="/questions/new"
+                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                    >
+                      質問する
                     </Link>
 
                     <button
@@ -336,7 +344,7 @@ export default function WelcomePage() {
                       href="/signup"
                       className="w-full sm:w-auto px-6 py-3 rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-300 transition"
                     >
-                      はじめる（ユーザー登録）
+                      新規登録する
                     </Link>
 
                     <Link
@@ -351,8 +359,14 @@ export default function WelcomePage() {
                       onClick={scrollToDetails}
                       className="w-full sm:w-auto px-6 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
                     >
-                      KnowValueを詳しく見る ↓
+                      Know Valueとは？
                     </button>
+                    <Link
+                      href="/questions"
+                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                    >
+                      質問一覧を見る
+                    </Link>
                   </>
                 )}
               </motion.div>
@@ -401,26 +415,26 @@ export default function WelcomePage() {
             <div className="mt-12">
               <SectionTitle
                 title="価値が生まれる流れ"
-                subtitle="“答える前”から価値が伝わる設計に。お互いの期待値がズレない状態をつくります。"
+                subtitle="質問する人も答える人も、納得して参加できる流れを整えています。"
               />
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <StepCard
                   step="STEP 1"
                   title="質問する"
-                  desc="知りたいこと・背景・目的を整理して投稿。質問には報酬金額を設定し、一番価値ある回答を選んだ人にその報酬が支払われます。あなたの状況が伝わるほど、良い答えが集まります。"
+                  desc="知りたいこと・背景・目的を整理して投稿します。質問には報酬額を設定でき、実際の決済はその報酬額に所定の手数料を加えた金額となります。"
                   delay={0.05}
                 />
                 <StepCard
                   step="STEP 2"
-                  title="価値を提示する"
-                  desc="回答者は“提案”で価値を提示。どんな観点で、どこまで答えられるかを先に示します。"
+                  title="回答する"
+                  desc="回答者は自身の経験や知識をもとに回答します。表面的な情報ではなく、実体験に裏打ちされた知見が評価される設計です。"
                   delay={0.12}
                 />
                 <StepCard
                   step="STEP 3"
-                  title="納得して受け取る"
-                  desc="条件に納得できたら先へ進む。受け取った知見があなたの次の一歩を照らします。"
+                  title="BEST回答を選ぶ"
+                  desc="質問者は最も価値を感じた回答をBESTに選べます。BEST回答に選ばれた回答者には報酬が支払われ、他ユーザーは有料でその知見を閲覧できます。"
                   delay={0.19}
                 />
               </div>
@@ -429,13 +443,13 @@ export default function WelcomePage() {
             <div className="mt-12">
               <SectionTitle
                 title="よくある質問"
-                subtitle="ティザー期間でも、コンセプトだけは先に体験できるように。"
+                subtitle="小規模β版の公開にあたって、よくある疑問を整理しています。"
               />
 
               <div className="grid gap-3">
                 <FaqItem
                   q="KnowValueは今すぐ全部使えますか？"
-                  a="いまは先行公開中で、段階的に機能を解放しています。まずはWelcomeとティザーでコンセプトを確認できます。"
+                  a="現在は小規模β版として運用しています。基本機能は利用できますが、改善や調整を継続しながら順次安定化を進めています。"
                   defaultOpen
                 />
                 <FaqItem
@@ -462,13 +476,19 @@ export default function WelcomePage() {
                   href="/signup"
                   className="px-7 py-3 rounded-full bg-yellow-400 text-black font-extrabold hover:bg-yellow-300 transition"
                 >
-                  先行登録する
+                  新規登録する
                 </Link>
                 <Link
-                  href="/coming-soon"
+                  href="/questions/new"
                   className="px-7 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
                 >
-                  開発状況を見る
+                  質問する
+                </Link>
+                <Link
+                  href="/questions"
+                  className="px-7 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                >
+                  質問一覧を見る
                 </Link>
               </motion.div>
 
@@ -480,7 +500,7 @@ export default function WelcomePage() {
                 variants={fadeUp}
                 custom={0.1}
               >
-                ※ ティザー期間中は一部機能を制限しています
+                ※ 小規模β版として運用中のため、仕様や表示は今後更新される場合があります
               </motion.p>
             </div>
           </div>
