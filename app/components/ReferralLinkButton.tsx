@@ -62,7 +62,7 @@ export default function ReferralLinkButton({
         disabled={copying}
         className={
           className ??
-          "rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          "whitespace-nowrap rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
         }
       >
         {copying ? "コピー中..." : "紹介リンクを取得する"}

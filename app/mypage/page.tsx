@@ -241,7 +241,7 @@ export default async function MyPage({
                 </div>
               </div>
               <div className="w-full sm:w-auto">
-                <ReferralLinkButton referralId={dbUser.username || dbUser.id} />
+                <ReferralLinkButton referralId={dbUser.id} />
               </div>
             </div>
           </MyPageCard>

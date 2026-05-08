@@ -312,39 +312,34 @@ export default function WelcomePage() {
                   <>
                     <Link
                       href="/questions"
-                      className="w-full sm:w-auto px-6 py-3 rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-300 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm font-bold rounded-full bg-yellow-400 text-black transition hover:bg-yellow-300 sm:w-auto sm:px-6 sm:text-base"
                     >
                       質問一覧を見る
                     </Link>
 
                     <Link
                       href="/mypage"
-                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-white/20 bg-white/5 transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       マイページへ
                     </Link>
 
                     <Link
                       href="/questions/new"
-                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-yellow-400/30 bg-yellow-400/5 transition hover:bg-yellow-400/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       質問する
                     </Link>
 
                     <ReferralLinkButton
-                      referralId={
-                        (typeof user.user_metadata?.username === "string" &&
-                        user.user_metadata.username.trim().length > 0
-                          ? user.user_metadata.username
-                          : user.id)
-                      }
-                      className="w-full rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm hover:bg-white/10 sm:w-auto"
+                      referralId={user.id}
+                      className="w-full whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     />
 
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-red-400/30 bg-red-400/5 hover:bg-red-400/10 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-red-400/30 bg-red-400/5 transition hover:bg-red-400/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       ログアウト
                     </button>
@@ -353,14 +348,14 @@ export default function WelcomePage() {
                   <>
                     <Link
                       href="/signup"
-                      className="w-full sm:w-auto px-6 py-3 rounded-full bg-yellow-400 text-black font-bold hover:bg-yellow-300 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm font-bold rounded-full bg-yellow-400 text-black transition hover:bg-yellow-300 sm:w-auto sm:px-6 sm:text-base"
                     >
                       新規登録する
                     </Link>
 
                     <Link
                       href="/login"
-                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-white/20 bg-white/5 transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       ログイン
                     </Link>
@@ -368,13 +363,13 @@ export default function WelcomePage() {
                     <button
                       type="button"
                       onClick={scrollToDetails}
-                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-yellow-400/30 bg-yellow-400/5 transition hover:bg-yellow-400/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       Know Valueとは？
                     </button>
                     <Link
                       href="/questions"
-                      className="w-full sm:w-auto px-6 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-white/20 bg-white/5 transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       質問一覧を見る
                     </Link>
@@ -487,19 +482,19 @@ export default function WelcomePage() {
                   <>
                     <Link
                       href="/questions"
-                      className="px-7 py-3 rounded-full bg-yellow-400 text-black font-extrabold hover:bg-yellow-300 transition"
+                      className="whitespace-nowrap rounded-full bg-yellow-400 px-6 py-3 text-sm font-extrabold text-black transition hover:bg-yellow-300 sm:px-7 sm:text-base"
                     >
                       質問一覧を見る
                     </Link>
                     <Link
                       href="/questions/new"
-                      className="px-7 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                      className="whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm transition hover:bg-white/10 sm:px-7 sm:text-base"
                     >
                       質問する
                     </Link>
                     <Link
                       href="/mypage"
-                      className="px-7 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                      className="whitespace-nowrap rounded-full border border-yellow-400/30 bg-yellow-400/5 px-6 py-3 text-sm transition hover:bg-yellow-400/10 sm:px-7 sm:text-base"
                     >
                       マイページへ
                     </Link>
@@ -508,19 +503,19 @@ export default function WelcomePage() {
                   <>
                     <Link
                       href="/signup"
-                      className="px-7 py-3 rounded-full bg-yellow-400 text-black font-extrabold hover:bg-yellow-300 transition"
+                      className="whitespace-nowrap rounded-full bg-yellow-400 px-6 py-3 text-sm font-extrabold text-black transition hover:bg-yellow-300 sm:px-7 sm:text-base"
                     >
                       新規登録する
                     </Link>
                     <Link
                       href="/login"
-                      className="px-7 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                      className="whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm transition hover:bg-white/10 sm:px-7 sm:text-base"
                     >
                       ログイン
                     </Link>
                     <Link
                       href="/questions"
-                      className="px-7 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                      className="whitespace-nowrap rounded-full border border-yellow-400/30 bg-yellow-400/5 px-6 py-3 text-sm transition hover:bg-yellow-400/10 sm:px-7 sm:text-base"
                     >
                       質問一覧を見る
                     </Link>
