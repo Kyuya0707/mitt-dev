@@ -28,6 +28,13 @@ export async function GET() {
     const authUser = await getCurrentUser();
 
     const rawQuestions = await prisma.question.findMany({
+      where: {
+        cancellationRequests: {
+          none: {
+            status: "approved",
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
       include: { category: true, answers: true, images: true },
     });

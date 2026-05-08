@@ -15,6 +15,7 @@ import QuestionReadClient from "./QuestionReadClient";
 import QuestionInteractionClient from "./QuestionInteractionClient";
 import QuestionRepurchaseButton from "./QuestionRepurchaseButton";
 import ViewerPriceEditor from "./ViewerPriceEditor";
+import CancellationRequestCard from "./CancellationRequestCard";
 import type { QuestionAnswer } from "./types";
 
 import { cookies } from "next/headers";
@@ -29,6 +30,7 @@ const answerUserSelect = {
 
 const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
   id: true,
+  createdAt: true,
   title: true,
   content: true,
   userId: true,
@@ -201,6 +203,28 @@ export default async function Page({
     return <div className="p-6">質問が見つかりません。</div>;
   }
 
+  const latestCancellationRequest = await prisma.cancellationRequest.findFirst({
+    where: {
+      questionId: question.id,
+    },
+    orderBy: { requestedAt: "desc" },
+    select: {
+      status: true,
+      requestedAt: true,
+      adminNote: true,
+    },
+  });
+
+  const cancellationAvailableAt = new Date(question.createdAt);
+  cancellationAvailableAt.setDate(cancellationAvailableAt.getDate() + 7);
+  const isCancellationOldEnough = cancellationAvailableAt <= new Date();
+  const canRequestCancellation =
+    isAuthor &&
+    isCancellationOldEnough &&
+    !question.bestAnswerId &&
+    latestCancellationRequest?.status !== "pending" &&
+    latestCancellationRequest?.status !== "approved";
+
   const rewardBreakdown = getQuestionRewardBreakdown(question.rewardAmount);
   const bestViewBreakdown = getBestViewRevenueBreakdown(question.viewerPrice ?? 0);
 
@@ -366,6 +390,19 @@ export default async function Page({
           </p>
           <QuestionRepurchaseButton questionId={question.id} />
         </div>
+      )}
+
+      {isAuthor && (
+        <CancellationRequestCard
+          questionId={question.id}
+          canRequest={canRequestCancellation}
+          isOldEnough={isCancellationOldEnough}
+          existingStatus={latestCancellationRequest?.status ?? null}
+          requestedAt={
+            latestCancellationRequest?.requestedAt?.toISOString() ?? null
+          }
+          adminNote={latestCancellationRequest?.adminNote ?? null}
+        />
       )}
 
       {/* 戻る */}

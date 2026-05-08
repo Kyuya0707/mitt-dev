@@ -71,6 +71,7 @@ export default async function AdminDashboardPage() {
     paidPayoutCount,
     pendingBestViewPayoutCount,
     paidBestViewPayoutCount,
+    pendingCancellationRequestCount,
     recentQuestions,
     recentAnswers,
   ] = await Promise.all([
@@ -112,6 +113,9 @@ export default async function AdminDashboardPage() {
     prisma.bestViewPayout.count({
       where: { status: "paid" },
     }),
+    prisma.cancellationRequest.count({
+      where: { status: "pending" },
+    }),
     prisma.question.findMany({
       orderBy: { createdAt: "desc" },
       take: 5,
@@ -141,7 +145,10 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
-  const adminActionCount = pendingPayoutCount + pendingBestViewPayoutCount;
+  const adminActionCount =
+    pendingPayoutCount +
+    pendingBestViewPayoutCount +
+    pendingCancellationRequestCount;
 
   return (
     <div className="min-h-screen bg-gray-50 text-black">
@@ -173,7 +180,7 @@ export default async function AdminDashboardPage() {
             <SummaryCard
               label="管理者対応件数"
               value={String(adminActionCount)}
-              description="未送金または失敗状態の Payout 件数です。"
+              description="未送金Payoutとキャンセル申請中件数の合計です。"
             />
             <SummaryCard
               label="質問投稿決済売上"
@@ -198,6 +205,10 @@ export default async function AdminDashboardPage() {
             <SummaryCard
               label="BEST閲覧料 送金済み件数"
               value={String(paidBestViewPayoutCount)}
+            />
+            <SummaryCard
+              label="キャンセル申請中件数"
+              value={String(pendingCancellationRequestCount)}
             />
           </div>
 

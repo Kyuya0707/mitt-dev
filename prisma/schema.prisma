@@ -27,6 +27,12 @@ enum ReportReason {
   FALSE_INFORMATION
 }
 
+enum CancellationRequestStatus {
+  pending
+  approved
+  rejected
+}
+
 model User {
   id                 String   @id
   email              String   @unique
@@ -57,6 +63,8 @@ model User {
   purchases       Purchase[]
   payouts         Payout[]
   bestViewPayouts BestViewPayout[] @relation("BestViewPayoutRecipientUser")
+  cancellationRequests        CancellationRequest[] @relation("CancellationRequester")
+  reviewedCancellationRequests CancellationRequest[] @relation("CancellationReviewer")
 
   readAnswers            AnswerRead[]
   comments               Comment[]
@@ -109,6 +117,8 @@ model Question {
   negotiations Negotiation[]
 
   reports Report[]
+
+  cancellationRequests CancellationRequest[]
 
   isPaid Boolean @default(false)
 }
@@ -345,6 +355,27 @@ model Payout {
   stripeTransferId  String?   @unique
   transferredAt     DateTime?
   failureReason     String?
+}
+
+model CancellationRequest {
+  id              String                    @id @default(cuid())
+  questionId      String
+  requesterUserId String
+  status          CancellationRequestStatus @default(pending)
+  reason          String?
+  adminNote       String?
+  stripeRefundId  String?
+  requestedAt     DateTime                  @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  requester  User     @relation("CancellationRequester", fields: [requesterUserId], references: [id])
+  reviewedBy User?    @relation("CancellationReviewer", fields: [reviewedById], references: [id])
+
+  @@index([questionId])
+  @@index([requesterUserId])
+  @@index([status])
 }
 
 model EventLog {

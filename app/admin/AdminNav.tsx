@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 type AdminNavProps = {
-  current: "dashboard" | "payouts" | "best-view-payouts";
+  current: "dashboard" | "payouts" | "best-view-payouts" | "cancellation-requests";
 };
 
 function getLinkClass(active: boolean) {
@@ -37,6 +37,12 @@ export default function AdminNav({ current }: AdminNavProps) {
         className={getLinkClass(current === "best-view-payouts")}
       >
         BEST閲覧料Payout
+      </Link>
+      <Link
+        href="/admin/cancellation-requests"
+        className={getLinkClass(current === "cancellation-requests")}
+      >
+        キャンセル申請
       </Link>
     </div>
   );
