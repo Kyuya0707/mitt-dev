@@ -423,6 +423,15 @@ export default async function Page({
           この質問では、表示報酬額のうち10%がプラットフォーム手数料となり、残りがBEST回答者へ支払われます。
         </p>
       </div>
+      <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+        <div className="font-semibold text-yellow-900">
+          実体験や知見を集めるための質問です
+        </div>
+        <p className="mt-2 text-sm leading-relaxed text-yellow-900/80">
+          一般論ではなく、実際に経験した人の判断や工夫を集めることを前提にしています。
+          背景や悩みが具体的なほど、より深い回答が届きやすくなります。
+        </p>
+      </div>
       <div className="mt-2 p-4 bg-gray-100 rounded">
         BEST閲覧価格：
         {question.viewerPrice && question.viewerPrice > 0
@@ -452,6 +461,9 @@ export default async function Page({
               </div>
             </div>
           </div>
+          <p className="mt-3 text-xs leading-6 text-gray-600">
+            このBEST回答は有料公開できます。閲覧料金は質問者と回答者へ還元され、価値ある実体験が継続的に評価されます。
+          </p>
         </div>
       )}
       {isAuthor && (

@@ -327,8 +327,32 @@ export default function AnswerCard({
         </span>
       </div>
 
+      <div className="mb-3 flex flex-wrap gap-2">
+        <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          実体験ベース
+        </span>
+        {ans.content && ans.content.trim().length >= 180 && (
+          <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
+            詳細回答
+          </span>
+        )}
+        {isBest && (
+          <span className="rounded-full border border-yellow-300 bg-yellow-50 px-3 py-1 text-xs font-semibold text-yellow-800">
+            BEST回答
+          </span>
+        )}
+      </div>
+
       {isLockedBest ? (
         <div className="mt-3 p-4 rounded-lg border border-gray-300 bg-gray-50 text-sm text-gray-700">
+          <div className="mb-3 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-3">
+            <div className="font-semibold text-yellow-900">
+              このBEST回答は有料公開されています
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-yellow-900/80">
+              閲覧料金は質問者への還元、回答者への還元、KnowValue運営維持のために分配されます。
+            </p>
+          </div>
           <p className="mb-3">このBEST回答はロックされています。閲覧には購入が必要です。</p>
           {viewerPrice && viewerPrice > 0 ? (
             <p className="mb-3 font-semibold text-gray-900">

@@ -248,6 +248,21 @@ export default function NewQuestionPage() {
 
           {errorMsg && <p className="text-red-500 mb-2">{errorMsg}</p>}
 
+          <div className="mb-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+            <h2 className="text-lg font-bold text-yellow-950">
+              良い質問ほど、良い回答が集まります
+            </h2>
+            <ul className="mt-3 space-y-2 text-sm leading-relaxed text-yellow-900">
+              <li>・ どんな背景や状況なのかを書く</li>
+              <li>・ 何に悩んでいるのかを具体的に書く</li>
+              <li>・ 比較した内容や試したことを書く</li>
+              <li>・ 実際に知りたいことをはっきり書く</li>
+            </ul>
+            <p className="mt-3 text-sm text-yellow-800">
+              実体験ベースの回答が届きやすくなります。
+            </p>
+          </div>
+
           {consentLoading ? (
             <div className="mb-6 rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
               同意状態を確認しています...
@@ -409,6 +424,9 @@ export default function NewQuestionPage() {
               </p>
               {viewerPrice > 0 && (
                 <div className="mt-3 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-gray-700">
+                  <p className="mb-3 text-gray-700">
+                    BEST回答は有料公開できます。閲覧料金は質問者・回答者へ分配されます。
+                  </p>
                   <div className="font-semibold text-gray-900">BEST閲覧料の分配</div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <div className="rounded-lg bg-white px-3 py-2">

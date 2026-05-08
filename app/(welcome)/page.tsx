@@ -272,33 +272,44 @@ export default function WelcomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.9, delay: 0.25 }}
               >
-                <span className="text-white">Know</span>
-                <span className="text-yellow-400">Value</span>
+                <span className="text-white">検索ではなく、</span>
+                <br />
+                <span className="text-yellow-400">経験者にたどり着く。</span>
               </motion.h1>
 
-              {/* ここ：今の概要（そのまま） */}
               <motion.p
-                className="mt-6 text-white/85 leading-relaxed"
+                className="mt-6 text-base leading-relaxed text-white/85 sm:text-lg"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.0, delay: 0.55 }}
               >
-                Know Value は、実体験や知見に価値をつける報酬付きQ&Aサービスです。
+                KnowValue は、
                 <br />
-                質問者は報酬を設定して質問でき、回答者は経験や知識を回答として届けられます。
-                <br />
-                <span className="text-yellow-300 font-semibold">
-                  BEST回答に選ばれた回答者には、報酬が支払われます。
-                </span>
+                実体験や知見に報酬が支払われる
+                <br className="hidden sm:block" />
+                Q&amp;Aサービスです。
               </motion.p>
 
               <motion.p
-                className="mt-4 text-sm text-white/55"
+                className="mt-4 text-sm leading-relaxed text-yellow-100/90 sm:text-base"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 1.0, delay: 0.75 }}
+                transition={{ duration: 1.0, delay: 0.68 }}
               >
-                現在は小規模β版として運用しています。
+                AIではなく、
+                <br className="sm:hidden" />
+                本当に経験した人に、直接聞ける。
+              </motion.p>
+
+              <motion.p
+                className="mt-4 text-sm leading-relaxed text-white/65 sm:text-base"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.0, delay: 0.8 }}
+              >
+                質問者は報酬を設定して質問でき、回答者は経験や知識を回答として届けられます。
+                <br />
+                BEST回答に選ばれた回答者には報酬が支払われます。現在は小規模β版として運用しています。
               </motion.p>
 
               {/* ✅ CTA（ここだけログイン状態で出し分け） */}
@@ -420,31 +431,66 @@ export default function WelcomePage() {
 
             <div className="mt-12">
               <SectionTitle
-                title="価値が生まれる流れ"
-                subtitle="質問する人も答える人も、納得して参加できる流れを整えています。"
+                title="3STEPで分かる KnowValue"
+                subtitle="質問する人にも、答える人にも価値がある流れをシンプルに整理しています。"
               />
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <StepCard
                   step="STEP 1"
                   title="質問する"
-                  desc="知りたいこと・背景・目的を整理して投稿します。質問には報酬額を設定でき、実際の決済はその報酬額に所定の手数料を加えた金額となります。"
+                  desc="回答者への報酬を設定して質問します。背景や比較したことまで書くほど、良い回答が集まりやすくなります。"
                   delay={0.05}
                 />
                 <StepCard
                   step="STEP 2"
-                  title="回答する"
-                  desc="回答者は自身の経験や知識をもとに回答します。表面的な情報ではなく、実体験に裏打ちされた知見が評価される設計です。"
+                  title="経験者から回答が届く"
+                  desc="実体験ベースの回答が集まります。AIではなく、実際に経験した人の知見を受け取れます。"
                   delay={0.12}
                 />
                 <StepCard
                   step="STEP 3"
                   title="BEST回答を選ぶ"
-                  desc="質問者は最も価値を感じた回答をBESTに選べます。BEST回答に選ばれた回答者には報酬が支払われ、他ユーザーは有料でその知見を閲覧できます。"
+                  desc="BEST回答に報酬が支払われます。価値ある回答は、有料公開によって継続的に評価されます。"
                   delay={0.19}
                 />
               </div>
             </div>
+
+            <motion.div
+              className="mt-12 rounded-3xl border border-yellow-400/20 bg-black/45 p-6 sm:p-8"
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, amount: 0.35 }}
+              variants={softPop}
+              custom={0.15}
+            >
+              <div className="grid gap-5 sm:grid-cols-[minmax(0,1.6fr)_minmax(220px,1fr)] sm:items-start">
+                <div>
+                  <div className="inline-flex items-center rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-200">
+                    継続的に価値が残る仕組み
+                  </div>
+                  <h3 className="mt-4 text-xl font-extrabold sm:text-2xl">
+                    BEST回答は有料で公開できます。
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">
+                    閲覧料金は質問者・回答者へ分配されます。価値ある実体験が、
+                    一度きりではなく継続的に評価される仕組みです。
+                  </p>
+                </div>
+                <div className="grid gap-3 text-sm text-white/75">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    質問者へ還元
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    回答者へ還元
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    KnowValue運営維持
+                  </div>
+                </div>
+              </div>
+            </motion.div>
 
             <div className="mt-12">
               <SectionTitle
