@@ -22,6 +22,83 @@ function buildTaggedError(code: string, message: string) {
   return error;
 }
 
+const DISPLAY_ID_PREFIX = "KV-";
+const DISPLAY_ID_START = 100001;
+
+function formatDisplayId(value: number) {
+  return `${DISPLAY_ID_PREFIX}${String(value).padStart(6, "0")}`;
+}
+
+function parseDisplayId(displayId: string | null | undefined) {
+  if (!displayId || !displayId.startsWith(DISPLAY_ID_PREFIX)) {
+    return null;
+  }
+
+  const value = Number(displayId.slice(DISPLAY_ID_PREFIX.length));
+  return Number.isInteger(value) ? value : null;
+}
+
+async function assignDisplayId(userId: string) {
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, displayId: true },
+  });
+
+  if (!existingUser) {
+    throw new Error("User not found while assigning displayId");
+  }
+
+  if (existingUser.displayId) {
+    return existingUser.displayId;
+  }
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const existingDisplayIds = await prisma.user.findMany({
+      where: {
+        displayId: {
+          startsWith: DISPLAY_ID_PREFIX,
+        },
+      },
+      select: { displayId: true },
+      orderBy: { displayId: "desc" },
+      take: 50,
+    });
+
+    const maxValue = existingDisplayIds.reduce((max, user) => {
+      const parsedValue = parseDisplayId(user.displayId);
+      return parsedValue && parsedValue > max ? parsedValue : max;
+    }, DISPLAY_ID_START - 1);
+
+    const nextDisplayId = formatDisplayId(maxValue + 1);
+
+    try {
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { displayId: nextDisplayId },
+        select: { displayId: true },
+      });
+
+      return updatedUser.displayId;
+    } catch (error) {
+      const errorCode =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        typeof error.code === "string"
+          ? error.code
+          : null;
+
+      if (errorCode === "P2002") {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("displayId assignment failed");
+}
+
 async function findAvailableUsername(base: string, userId: string) {
   let suffix = 0;
 
@@ -136,11 +213,17 @@ export async function ensurePrismaUser({
       },
       select: {
         id: true,
+        displayId: true,
         email: true,
         username: true,
         name: true,
       },
     });
+
+    if (!savedUser.displayId) {
+      const displayId = await assignDisplayId(savedUser.id);
+      savedUser.displayId = displayId;
+    }
 
     await ensureNotificationPreference(id);
     return savedUser;
@@ -150,6 +233,7 @@ export async function ensurePrismaUser({
     where: { id },
     select: {
       id: true,
+      displayId: true,
       email: true,
       username: true,
       name: true,
@@ -167,25 +251,35 @@ export async function ensurePrismaUser({
     JSON.stringify(existingUser.interestCategories ?? []) !==
       JSON.stringify(normalizedInterests)
   ) {
-    const savedUser = await prisma.user.update({
-      where: { id },
-      data: {
-        username: resolvedUsername,
+      const savedUser = await prisma.user.update({
+        where: { id },
+        data: {
+          username: resolvedUsername,
         interestCategories: normalizedInterests,
         ...(normalizedName ? { name: normalizedName } : {}),
         ...(ppConsentAt ? { ppConsentAt } : {}),
         ...(ppConsentVersion ? { ppConsentVersion } : {}),
       },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        name: true,
-      },
-    });
+        select: {
+          id: true,
+          displayId: true,
+          email: true,
+          username: true,
+          name: true,
+        },
+      });
 
-    await ensureNotificationPreference(id);
-    return savedUser;
+      if (!savedUser.displayId) {
+        const displayId = await assignDisplayId(savedUser.id);
+        savedUser.displayId = displayId;
+      }
+
+      await ensureNotificationPreference(id);
+      return savedUser;
+    }
+
+  if (!existingUser.displayId) {
+    existingUser.displayId = await assignDisplayId(existingUser.id);
   }
 
   await ensureNotificationPreference(id);

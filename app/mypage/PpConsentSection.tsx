@@ -28,7 +28,7 @@ export default function PpConsentSection({
     setAgreedAt(ppConsentAt);
   }, [ppConsentAt]);
 
-  const isAgreed = !!agreedAt;
+  const isAgreed = Boolean(agreedAt);
 
   const handleAgree = async () => {
     setSaving(true);
@@ -69,46 +69,49 @@ export default function PpConsentSection({
   };
 
   return (
-    <>
-      <p className="mt-2">
-        <span className="font-semibold">副業・税務の同意：</span>
-        {isAgreed ? (
-          <span className="text-green-600 font-bold">同意済み</span>
-        ) : (
-          <span className="text-red-600 font-bold">未同意</span>
-        )}
-      </p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold text-gray-800">副業・税務同意</span>
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-medium ${
+            isAgreed
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {isAgreed ? "同意済み" : "未同意"}
+        </span>
+      </div>
 
       {agreedAt && (
-        <p className="text-sm text-gray-600 mt-1">
-          同意日時：{new Date(agreedAt).toLocaleString("ja-JP")}
+        <p className="text-sm text-gray-600">
+          同意日時: {new Date(agreedAt).toLocaleString("ja-JP")}
         </p>
       )}
 
       {!isAgreed && (
-        <section className="p-5 mt-5 bg-yellow-100 border border-yellow-400 rounded shadow">
-          <h2 className="font-bold mb-2 text-lg">
+        <div className="rounded-2xl border border-yellow-300 bg-yellow-50 p-5">
+          <h3 className="text-base font-semibold text-yellow-900">
             副業・税務に関する重要な確認
-          </h2>
-
-          <p className="text-sm mb-4 leading-relaxed">
+          </h3>
+          <p className="mt-3 text-sm leading-7 text-yellow-900">
             回答が選ばれると <strong>報酬が発生する</strong> 可能性があります。
             場合によっては副業扱いとなり、
             <strong>確定申告などの税務対応</strong> が必要です。
           </p>
 
-          {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
+          {errorMsg && <p className="mt-3 text-sm text-red-600">{errorMsg}</p>}
 
           <button
             type="button"
             onClick={handleAgree}
             disabled={saving}
-            className="bg-blue-700 text-white px-4 py-2 rounded w-full hover:bg-blue-900 font-semibold disabled:opacity-60"
+            className="mt-4 w-full rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900 disabled:opacity-60"
           >
             {saving ? "同意を保存中..." : "同意して利用を続ける"}
           </button>
-        </section>
+        </div>
       )}
-    </>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import MyPageCard from "./MyPageCard";
 
 type StripeConnectSectionProps = {
   stripeAccountId: string | null;
@@ -80,48 +81,56 @@ export default function StripeConnectSection(
   };
 
   return (
-    <section className="p-5 bg-white border rounded shadow mb-10">
-      <h2 className="text-xl font-semibold mb-3">受取設定</h2>
-      <p className="mb-4 text-sm text-gray-600">
-        報酬を受け取るには、受取口座の登録が必要です。BEST回答に選ばれた報酬やBEST閲覧料の分配を受け取るため、Stripe Connectで受取設定を行ってください。
-      </p>
-
+    <MyPageCard
+      title="報酬受取設定"
+      description="報酬を受け取るには、受取口座の登録が必要です。BEST回答に選ばれた報酬やBEST閲覧料の分配を受け取るため、Stripe Connectで受取設定を行ってください。"
+    >
       {props.connectStatusParam === "return" && (
-        <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           受取設定の確認が完了しました。状態が反映されるまで少し時間がかかる場合があります。
         </div>
       )}
 
       {props.connectStatusParam === "refresh" && (
-        <div className="mb-4 rounded border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+        <div className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
           受取設定リンクの有効期限が切れました。もう一度お進みください。
         </div>
       )}
 
-      <p className="text-sm mb-2">
-        <span className="font-semibold">ステータス：</span>
-        {statusLabel}
-      </p>
-      <p className="text-sm text-gray-600 mb-4">{description}</p>
+      <div className="mb-4 flex items-center gap-3">
+        <span className="text-sm font-semibold text-gray-800">ステータス</span>
+        <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white">
+          {statusLabel}
+        </span>
+      </div>
+      <p className="mb-4 text-sm text-gray-600">{description}</p>
 
       {props.stripeAccountId && (
-        <div className="mb-4 space-y-1 text-sm text-gray-700">
-          <p>details_submitted: {props.detailsSubmitted ? "true" : "false"}</p>
-          <p>payouts_enabled: {props.payoutsEnabled ? "true" : "false"}</p>
-          <p>charges_enabled: {props.chargesEnabled ? "true" : "false"}</p>
+        <div className="mb-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            details_submitted: {props.detailsSubmitted ? "true" : "false"}
+          </div>
+          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            payouts_enabled: {props.payoutsEnabled ? "true" : "false"}
+          </div>
+          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            charges_enabled: {props.chargesEnabled ? "true" : "false"}
+          </div>
         </div>
       )}
 
       {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
 
       {props.onboardingCompleted ? (
-        <p className="text-sm text-green-700">受取設定は完了しています。</p>
+        <p className="text-sm font-medium text-green-700">
+          受取設定は完了しています。
+        </p>
       ) : (
         <button
           type="button"
           onClick={handleOnboarding}
           disabled={loading}
-          className="rounded bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="rounded-xl bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
         >
           {loading
             ? "Stripeへ移動中..."
@@ -130,6 +139,6 @@ export default function StripeConnectSection(
               : "受取設定をする"}
         </button>
       )}
-    </section>
+    </MyPageCard>
   );
 }

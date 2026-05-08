@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MyPageCard from "./MyPageCard";
 
 type NotificationPreferences = {
   emailOnAnswerCreated: boolean;
@@ -110,23 +111,30 @@ export default function NotificationSettingsSection() {
 
   if (loading) {
     return (
-      <section className="p-5 bg-white border rounded shadow mb-10">
-        <h2 className="text-xl font-semibold mb-3">メール通知設定</h2>
+      <MyPageCard
+        title="通知設定"
+        description="メール通知の受信設定を変更できます。"
+      >
         <p className="text-sm text-gray-500">読み込み中...</p>
-      </section>
+      </MyPageCard>
     );
   }
 
   return (
-    <section className="p-5 bg-white border rounded shadow mb-10">
-      <h2 className="text-xl font-semibold mb-3">メール通知設定</h2>
-      <p className="text-sm text-gray-600 mb-4">
+    <MyPageCard
+      title="通知設定"
+      description="回答、コメント、BEST選定、ログイン通知などのメール受信設定です。"
+    >
+      <p className="mb-4 text-sm text-gray-600">
         アプリ内通知は常に届きます。ここではメール通知のみ切り替えできます。
       </p>
 
       <div className="space-y-3">
         {SETTINGS.map((setting) => (
-          <label key={setting.key} className="flex items-start gap-3 text-sm">
+          <label
+            key={setting.key}
+            className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm"
+          >
             <input
               type="checkbox"
               checked={preferences[setting.key]}
@@ -144,10 +152,10 @@ export default function NotificationSettingsSection() {
         type="button"
         onClick={handleSave}
         disabled={saving}
-        className="mt-4 rounded bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+        className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
       >
         {saving ? "保存中..." : "通知設定を保存する"}
       </button>
-    </section>
+    </MyPageCard>
   );
 }

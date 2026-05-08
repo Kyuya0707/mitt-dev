@@ -211,19 +211,28 @@ export default function MyPageEdit() {
   };
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto p-6 mt-10">読み込み中...</div>;
+    return (
+      <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        読み込み中...
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 mt-10 text-black">
+    <div className="mx-auto max-w-3xl text-black">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">プロフィール編集</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">プロフィール編集</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            表示名、自己紹介、興味カテゴリなどを更新できます。
+          </p>
+        </div>
         <Link href="/mypage" className="text-sm text-blue-600 underline">
           ← マイページへ戻る
         </Link>
       </div>
 
-      <div className="bg-white border rounded shadow p-6 space-y-6">
+      <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         {/* 画像 */}
         <div>
           <div className="flex items-center gap-4">
@@ -238,7 +247,7 @@ export default function MyPageEdit() {
               )}
             </div>
 
-            <label className="cursor-pointer px-3 py-2 bg-gray-100 text-sm rounded border">
+            <label className="cursor-pointer rounded-xl border bg-gray-100 px-3 py-2 text-sm">
               画像を選択
               <input type="file" className="hidden" accept="image/*" onChange={onPickAvatar} />
             </label>
@@ -254,7 +263,7 @@ export default function MyPageEdit() {
           <input
             value={email}
             disabled
-            className="w-full border p-2 rounded bg-gray-100 text-gray-600"
+            className="w-full rounded-xl border bg-gray-100 p-2 text-gray-600"
           />
           <p className="text-xs text-gray-500 mt-1">
             ※ メール変更（再認証あり）は次STEPで実装する
@@ -267,7 +276,7 @@ export default function MyPageEdit() {
           <input
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="w-full border p-2 rounded"
+            className="w-full rounded-xl border p-2"
             placeholder="例）川田 祐也"
           />
         </div>
@@ -278,7 +287,7 @@ export default function MyPageEdit() {
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full border p-2 rounded"
+            className="w-full rounded-xl border p-2"
             placeholder="例）yuya0707"
             minLength={3}
             maxLength={20}
@@ -294,7 +303,7 @@ export default function MyPageEdit() {
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            className="w-full border p-2 rounded"
+            className="w-full rounded-xl border p-2"
             rows={4}
             placeholder="得意分野や実績など"
           />
@@ -309,7 +318,7 @@ export default function MyPageEdit() {
                 key={item}
                 type="button"
                 onClick={() => toggleInterest(item)}
-                className={`px-3 py-1 rounded-full border text-sm ${
+                className={`rounded-full border px-3 py-1 text-sm ${
                   interests.includes(item)
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-700"
@@ -327,7 +336,7 @@ export default function MyPageEdit() {
           <input
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
-            className="w-full border p-2 rounded"
+            className="w-full rounded-xl border p-2"
             placeholder="https://"
           />
         </div>
@@ -338,7 +347,7 @@ export default function MyPageEdit() {
           <select
             value={prefecture}
             onChange={(e) => setPrefecture(e.target.value)}
-            className="w-full border p-2 rounded"
+            className="w-full rounded-xl border p-2"
           >
             {PREFECTURES.map((p) => (
               <option key={p} value={p}>
@@ -361,7 +370,7 @@ export default function MyPageEdit() {
             type="email"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
-            className="w-full border p-2 rounded mb-2"
+            className="mb-2 w-full rounded-xl border p-2"
             placeholder="new-email@example.com"
           />
 
@@ -388,7 +397,7 @@ export default function MyPageEdit() {
               );
               setNewEmail("");
             }}
-            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-black"
+            className="rounded-xl bg-gray-800 px-4 py-2 text-white hover:bg-black"
           >
             確認メールを送信
           </button>
@@ -402,7 +411,7 @@ export default function MyPageEdit() {
         <button
           onClick={save}
           disabled={saving}
-          className="w-full bg-blue-700 text-white py-2 rounded font-semibold hover:bg-blue-900 disabled:opacity-50"
+          className="w-full rounded-xl bg-blue-700 py-2 font-semibold text-white hover:bg-blue-900 disabled:opacity-50"
         >
           {saving ? "保存中..." : "保存する"}
         </button>

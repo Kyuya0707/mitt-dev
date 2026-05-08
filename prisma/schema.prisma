@@ -30,6 +30,7 @@ enum ReportReason {
 model User {
   id                 String   @id
   email              String   @unique
+  displayId          String?  @unique
   username           String?  @unique
   name               String?
   createdAt          DateTime @default(now())

@@ -11,7 +11,8 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:check-integrity": "dotenv -e .env.local -- ts-node prisma/check-integrity.ts",
     "prisma:cleanup-test-data": "dotenv -e .env.local -- ts-node prisma/cleanup-test-data.ts",
-    "prisma:purge-all-users": "dotenv -e .env.local -- ts-node prisma/purge-all-users.ts"
+    "prisma:purge-all-users": "dotenv -e .env.local -- ts-node prisma/purge-all-users.ts",
+    "prisma:backfill-display-ids": "dotenv -e .env.local -- ts-node prisma/backfill-display-ids.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
