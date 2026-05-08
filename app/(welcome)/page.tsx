@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { User } from "@supabase/supabase-js";
+import ReferralLinkButton from "@/app/components/ReferralLinkButton";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
@@ -330,6 +331,16 @@ export default function WelcomePage() {
                       質問する
                     </Link>
 
+                    <ReferralLinkButton
+                      referralId={
+                        (typeof user.user_metadata?.username === "string" &&
+                        user.user_metadata.username.trim().length > 0
+                          ? user.user_metadata.username
+                          : user.id)
+                      }
+                      className="w-full rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm hover:bg-white/10 sm:w-auto"
+                    />
+
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -472,24 +483,49 @@ export default function WelcomePage() {
                 variants={fadeUp}
                 custom={0.05}
               >
-                <Link
-                  href="/signup"
-                  className="px-7 py-3 rounded-full bg-yellow-400 text-black font-extrabold hover:bg-yellow-300 transition"
-                >
-                  新規登録する
-                </Link>
-                <Link
-                  href="/questions/new"
-                  className="px-7 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
-                >
-                  質問する
-                </Link>
-                <Link
-                  href="/questions"
-                  className="px-7 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
-                >
-                  質問一覧を見る
-                </Link>
+                {user ? (
+                  <>
+                    <Link
+                      href="/questions"
+                      className="px-7 py-3 rounded-full bg-yellow-400 text-black font-extrabold hover:bg-yellow-300 transition"
+                    >
+                      質問一覧を見る
+                    </Link>
+                    <Link
+                      href="/questions/new"
+                      className="px-7 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                    >
+                      質問する
+                    </Link>
+                    <Link
+                      href="/mypage"
+                      className="px-7 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                    >
+                      マイページへ
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/signup"
+                      className="px-7 py-3 rounded-full bg-yellow-400 text-black font-extrabold hover:bg-yellow-300 transition"
+                    >
+                      新規登録する
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="px-7 py-3 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+                    >
+                      ログイン
+                    </Link>
+                    <Link
+                      href="/questions"
+                      className="px-7 py-3 rounded-full border border-yellow-400/30 bg-yellow-400/5 hover:bg-yellow-400/10 transition"
+                    >
+                      質問一覧を見る
+                    </Link>
+                  </>
+                )}
               </motion.div>
 
               <motion.p

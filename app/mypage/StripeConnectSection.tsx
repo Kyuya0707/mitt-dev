@@ -31,7 +31,7 @@ function getStatusLabel(props: StripeConnectSectionProps) {
 
 function getStatusDescription(props: StripeConnectSectionProps) {
   if (!props.stripeAccountId) {
-    return "まだ受取設定が完了していません。Stripe Connect の設定を開始してください。";
+    return "報酬を受け取るには、受取口座の登録が必要です。Stripe Connect で受取設定を開始してください。";
   }
 
   if (props.onboardingCompleted) {
@@ -39,10 +39,10 @@ function getStatusDescription(props: StripeConnectSectionProps) {
   }
 
   if (props.disabledReason || props.currentlyDueCount > 0) {
-    return "追加の確認項目があります。受取設定を続けてください。";
+    return "追加の確認項目があります。BEST回答報酬やBEST閲覧料の分配を受け取るため、受取設定を続けてください。";
   }
 
-  return "Stripe 側で受取設定が途中です。続きを完了してください。";
+  return "BEST回答報酬やBEST閲覧料の分配を受け取るため、Stripe 側の受取設定を完了してください。";
 }
 
 export default function StripeConnectSection(
@@ -82,6 +82,9 @@ export default function StripeConnectSection(
   return (
     <section className="p-5 bg-white border rounded shadow mb-10">
       <h2 className="text-xl font-semibold mb-3">受取設定</h2>
+      <p className="mb-4 text-sm text-gray-600">
+        報酬を受け取るには、受取口座の登録が必要です。BEST回答に選ばれた報酬やBEST閲覧料の分配を受け取るため、Stripe Connectで受取設定を行ってください。
+      </p>
 
       {props.connectStatusParam === "return" && (
         <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">

@@ -8,6 +8,7 @@ import PpConsentSection from "./PpConsentSection";
 import StripeConnectSection from "./StripeConnectSection";
 import LogoutButton from "./LogoutButton";
 import { syncStripeConnectAccountStatus } from "@/lib/stripe-connect";
+import ReferralLinkButton from "@/app/components/ReferralLinkButton";
 
 export default async function MyPage({
   searchParams,
@@ -211,6 +212,16 @@ export default async function MyPage({
             → プロフィールを編集する
           </Link>
         </div>
+
+        <div className="mt-5 rounded border border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm font-semibold text-gray-900">紹介リンク</p>
+          <p className="mt-1 text-sm text-gray-600">
+            Know Value を紹介するときに使えるリンクです。
+          </p>
+          <div className="mt-3">
+            <ReferralLinkButton referralId={dbUser.username || dbUser.id} />
+          </div>
+        </div>
       </section>
 
       <StripeConnectSection
@@ -245,11 +256,13 @@ export default async function MyPage({
       {/* ===== 質問履歴 ===== */}
       <section className="mb-10">
         <h2 className="text-xl font-semibold mb-4 text-blue-700">
-          質問投稿履歴（最新3件）
+          {dbUser.questions.length === 0
+            ? "質問投稿履歴"
+            : "質問投稿履歴（最新3件）"}
         </h2>
 
         {dbUser.questions.length === 0 ? (
-          <p className="text-gray-500">まだ質問を投稿していません。</p>
+          <p className="text-gray-500">投稿履歴はまだありません。</p>
         ) : (
           <div className="space-y-4">
             {dbUser.questions.map((q) => (
@@ -288,11 +301,13 @@ export default async function MyPage({
       {/* ===== 回答履歴 ===== */}
       <section className="mb-10">
         <h2 className="text-xl font-semibold mb-4 text-green-700">
-          回答履歴（最新3件）
+          {dbUser.answers.length === 0
+            ? "回答履歴"
+            : "回答履歴（最新3件）"}
         </h2>
 
         {dbUser.answers.length === 0 ? (
-          <p className="text-gray-500">まだ回答していません。</p>
+          <p className="text-gray-500">回答履歴はまだありません。</p>
         ) : (
           <div className="space-y-4">
             {dbUser.answers.map((ans) => (

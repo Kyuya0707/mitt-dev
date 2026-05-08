@@ -312,7 +312,7 @@ export default function NewQuestionPage() {
 
             {/* 報酬額 */}
             <div>
-              <label className="block mb-1 font-medium">報酬額</label>
+              <label className="block mb-1 font-medium">回答者への報酬額</label>
               <div className="flex items-center overflow-hidden rounded border">
                 <input
                   type="number"
@@ -328,10 +328,17 @@ export default function NewQuestionPage() {
                 </span>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                最低報酬額は500円です。現在: {formatYen(rewardAmount)}円
+                BEST回答に選ばれた回答者へ支払われる報酬です。最低報酬額は500円です。現在:{" "}
+                {formatYen(rewardAmount)}円
               </p>
               <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-gray-700">
                 <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg bg-white px-3 py-2">
+                    <div className="text-xs text-gray-500">回答者へ支払う報酬</div>
+                    <div className="font-semibold text-gray-900">
+                      {formatYen(rewardBreakdown.grossAmount)}円
+                    </div>
+                  </div>
                   <div className="rounded-lg bg-white px-3 py-2">
                     <div className="text-xs text-gray-500">プラットフォーム手数料</div>
                     <div className="font-semibold text-gray-900">
@@ -346,7 +353,7 @@ export default function NewQuestionPage() {
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-6 text-gray-600">
-                  設定した報酬額にプラットフォーム手数料10%を加算した金額を決済します。
+                  回答してもらうための報酬を設定します。実際の決済時には、この報酬額にプラットフォーム手数料10%を加算した金額を決済します。
                 </p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">

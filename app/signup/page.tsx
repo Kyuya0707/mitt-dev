@@ -1,7 +1,7 @@
 // app/signup/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
@@ -63,6 +63,71 @@ const PREFECTURES = [
 
 // ✅ PPバージョン（DB保存用）
 const PP_CONSENT_VERSION = "2026-01-18_v1";
+const SIGNUP_DRAFT_STORAGE_KEY = "knowvalue_signup_draft_v1";
+
+type SignupDraft = {
+  email: string;
+  username: string;
+  lastName: string;
+  firstName: string;
+  bio: string;
+  website: string;
+  prefecture: string;
+  interests: string[];
+  legalAgreed: boolean;
+  ppAgreed: boolean;
+};
+
+function getInitialSignupDraft(): SignupDraft {
+  if (typeof window === "undefined") {
+    return {
+      email: "",
+      username: "",
+      lastName: "",
+      firstName: "",
+      bio: "",
+      website: "",
+      prefecture: "未選択",
+      interests: [],
+      legalAgreed: false,
+      ppAgreed: false,
+    };
+  }
+
+  try {
+    const rawDraft = window.sessionStorage.getItem(SIGNUP_DRAFT_STORAGE_KEY);
+    if (!rawDraft) {
+      throw new Error("no draft");
+    }
+
+    const draft = JSON.parse(rawDraft) as Partial<SignupDraft>;
+    return {
+      email: draft.email ?? "",
+      username: draft.username ?? "",
+      lastName: draft.lastName ?? "",
+      firstName: draft.firstName ?? "",
+      bio: draft.bio ?? "",
+      website: draft.website ?? "",
+      prefecture: draft.prefecture ?? "未選択",
+      interests: Array.isArray(draft.interests) ? draft.interests : [],
+      legalAgreed: Boolean(draft.legalAgreed),
+      ppAgreed: Boolean(draft.ppAgreed),
+    };
+  } catch {
+    return {
+      email: "",
+      username: "",
+      lastName: "",
+      firstName: "",
+      bio: "",
+      website: "",
+      prefecture: "未選択",
+      interests: [],
+      legalAgreed: false,
+      ppAgreed: false,
+    };
+  }
+}
 
 // ✅ PP本文（モーダル表示用）
 const PRIVACY_POLICY_TEXT = `プライバシーポリシー（KnowValue）
@@ -120,17 +185,18 @@ support@knowvalue.jp
 export default function SignupPage() {
   const router = useRouter();
   const supabase = createClientBrowser();
+  const initialDraft = useMemo(() => getInitialSignupDraft(), []);
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialDraft.email);
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [firstName, setFirstName] = useState("");
+  const [username, setUsername] = useState(initialDraft.username);
+  const [lastName, setLastName] = useState(initialDraft.lastName);
+  const [firstName, setFirstName] = useState(initialDraft.firstName);
 
-  const [bio, setBio] = useState("");
-  const [website, setWebsite] = useState("");
-  const [prefecture, setPrefecture] = useState("未選択");
-  const [interests, setInterests] = useState<string[]>([]);
+  const [bio, setBio] = useState(initialDraft.bio);
+  const [website, setWebsite] = useState(initialDraft.website);
+  const [prefecture, setPrefecture] = useState(initialDraft.prefecture);
+  const [interests, setInterests] = useState<string[]>(initialDraft.interests);
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -138,9 +204,49 @@ export default function SignupPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   // ✅ PP同意
-  const [ppAgreed, setPpAgreed] = useState(false);
+  const [ppAgreed, setPpAgreed] = useState(initialDraft.ppAgreed);
   const [ppOpen, setPpOpen] = useState(false);
-  const [legalAgreed, setLegalAgreed] = useState(false);
+  const [legalAgreed, setLegalAgreed] = useState(initialDraft.legalAgreed);
+  const [loading, setLoading] = useState(false);
+  const [signupCompletedEmail, setSignupCompletedEmail] = useState("");
+
+  const signupDraft = useMemo(
+    () => ({
+      email,
+      username,
+      lastName,
+      firstName,
+      bio,
+      website,
+      prefecture,
+      interests,
+      legalAgreed,
+      ppAgreed,
+    }),
+    [
+      email,
+      username,
+      lastName,
+      firstName,
+      bio,
+      website,
+      prefecture,
+      interests,
+      legalAgreed,
+      ppAgreed,
+    ]
+  );
+
+  useEffect(() => {
+    if (signupCompletedEmail) {
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      SIGNUP_DRAFT_STORAGE_KEY,
+      JSON.stringify(signupDraft)
+    );
+  }, [signupCompletedEmail, signupDraft]);
 
   // 画像選択
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,22 +265,29 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) {
+      return;
+    }
     setErrorMsg("");
+    setLoading(true);
 
     const usernameValidation = validateUsername(username);
     if (!usernameValidation.ok) {
       setErrorMsg(usernameValidation.message);
+      setLoading(false);
       return;
     }
     
     if (!legalAgreed) {
       setErrorMsg("利用規約とプライバシーポリシーへの同意が必要です。");
+      setLoading(false);
       return;
     }
 
     // ✅ PP同意必須
     if (!ppAgreed) {
       setErrorMsg("副業・税務に関する同意が必要です。");
+      setLoading(false);
       return;
     }
 
@@ -188,11 +301,13 @@ export default function SignupPage() {
 
     if (!usernameCheckRes.ok) {
       setErrorMsg(usernameCheckData.error || "ユーザー名の確認に失敗しました。");
+      setLoading(false);
       return;
     }
 
     if (!usernameCheckData.available) {
       setErrorMsg("このユーザー名はすでに使用されています。");
+      setLoading(false);
       return;
     }
 
@@ -208,6 +323,7 @@ export default function SignupPage() {
 
       if (uploadError) {
         setErrorMsg("画像アップロードに失敗しました");
+        setLoading(false);
         return;
       }
 
@@ -244,14 +360,49 @@ export default function SignupPage() {
 
     if (signUpError) {
       setErrorMsg(signUpError.message);
+      setLoading(false);
       return;
     }
 
     void signUpData;
-
-    alert("登録完了！認証メールを確認してください。");
-    router.push("/login");
+    window.sessionStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY);
+    setSignupCompletedEmail(email);
+    setPassword("");
+    setLoading(false);
   };
+
+  if (signupCompletedEmail) {
+    return (
+      <div className="mx-auto mt-10 max-w-lg rounded-lg bg-white p-6 shadow">
+        <h1 className="mb-4 text-2xl font-bold text-black">確認メールを送信しました</h1>
+        <p className="text-sm leading-7 text-gray-700">
+          <span className="font-semibold">{signupCompletedEmail}</span>
+          に確認メールを送信しました。メール内のリンクから認証を完了してください。
+        </p>
+        <p className="mt-3 text-sm leading-7 text-gray-700">
+          認証完了後にログインできます。メールが届かない場合は、迷惑メールフォルダも確認してください。
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/login"
+            className="rounded bg-blue-600 px-4 py-2 text-center font-semibold text-white hover:bg-blue-700"
+          >
+            ログイン画面へ
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setSignupCompletedEmail("");
+              router.refresh();
+            }}
+            className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            別のメールアドレスで登録する
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-lg mx-auto mt-10 bg-white shadow p-6 rounded-lg">
@@ -462,10 +613,11 @@ export default function SignupPage() {
         {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
 
         <button
-          disabled={!legalAgreed || !ppAgreed}
+          type="submit"
+          disabled={loading || !legalAgreed || !ppAgreed}
           className="w-full rounded bg-blue-600 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          登録する
+          {loading ? "登録中..." : "登録する"}
         </button>
       </form>
 
