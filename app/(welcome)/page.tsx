@@ -303,7 +303,7 @@ export default function WelcomePage() {
 
               {/* ✅ CTA（ここだけログイン状態で出し分け） */}
               <motion.div
-                className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3"
+                className="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center"
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 1.05 }}
@@ -312,34 +312,34 @@ export default function WelcomePage() {
                   <>
                     <Link
                       href="/questions"
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm font-bold rounded-full bg-yellow-400 text-black transition hover:bg-yellow-300 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full bg-yellow-400 px-5 py-3 text-sm font-bold text-black transition hover:bg-yellow-300 sm:w-auto sm:px-6 sm:text-base"
                     >
                       質問一覧を見る
                     </Link>
 
                     <Link
                       href="/mypage"
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-white/20 bg-white/5 transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       マイページへ
                     </Link>
 
                     <Link
                       href="/questions/new"
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-yellow-400/30 bg-yellow-400/5 transition hover:bg-yellow-400/10 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full border border-yellow-400/30 bg-yellow-400/5 px-5 py-3 text-sm transition hover:bg-yellow-400/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       質問する
                     </Link>
 
                     <ReferralLinkButton
                       referralId={user.id}
-                      className="w-full whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     />
 
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-red-400/30 bg-red-400/5 transition hover:bg-red-400/10 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full border border-red-400/30 bg-red-400/5 px-5 py-3 text-sm transition hover:bg-red-400/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       ログアウト
                     </button>
@@ -348,14 +348,14 @@ export default function WelcomePage() {
                   <>
                     <Link
                       href="/signup"
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm font-bold rounded-full bg-yellow-400 text-black transition hover:bg-yellow-300 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full bg-yellow-400 px-5 py-3 text-sm font-bold text-black transition hover:bg-yellow-300 sm:w-auto sm:px-6 sm:text-base"
                     >
                       新規登録する
                     </Link>
 
                     <Link
                       href="/login"
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-white/20 bg-white/5 transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       ログイン
                     </Link>
@@ -363,13 +363,13 @@ export default function WelcomePage() {
                     <button
                       type="button"
                       onClick={scrollToDetails}
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-yellow-400/30 bg-yellow-400/5 transition hover:bg-yellow-400/10 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full border border-yellow-400/30 bg-yellow-400/5 px-5 py-3 text-sm transition hover:bg-yellow-400/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       Know Valueとは？
                     </button>
                     <Link
                       href="/questions"
-                      className="w-full whitespace-nowrap px-5 py-3 text-sm rounded-full border border-white/20 bg-white/5 transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
+                      className="w-full shrink-0 whitespace-nowrap rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm transition hover:bg-white/10 sm:w-auto sm:px-6 sm:text-base"
                     >
                       質問一覧を見る
                     </Link>
@@ -471,7 +471,7 @@ export default function WelcomePage() {
 
             <div className="mt-14 text-center">
               <motion.div
-                className="inline-flex flex-col sm:flex-row gap-3"
+                className="inline-flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center"
                 initial="hidden"
                 whileInView="show"
                 viewport={{ once: true, amount: 0.35 }}
