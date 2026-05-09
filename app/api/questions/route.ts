@@ -1,8 +1,8 @@
 // app/api/questions/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getCurrentUser } from "@/lib/auth";
 import { sortCategoryNames } from "@/lib/category-options";
 import { validateViewerPrice } from "@/lib/viewer-price";
 
@@ -20,58 +20,183 @@ function safeFileName(originalName: string) {
   );
 }
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 50;
+
+function parsePositiveInt(value: string | null, fallback: number) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return Math.trunc(parsed);
+}
+
+function buildQuestionListWhere(params: {
+  q: string;
+  categoryId: string;
+  categoryName: string;
+  excludeBest: boolean;
+}) {
+  const where: Prisma.QuestionWhereInput = {
+    cancellationRequests: {
+      none: {
+        status: "approved",
+      },
+    },
+  };
+
+  if (params.q) {
+    where.OR = [
+      {
+        title: {
+          contains: params.q,
+          mode: "insensitive",
+        },
+      },
+      {
+        content: {
+          contains: params.q,
+          mode: "insensitive",
+        },
+      },
+    ];
+  }
+
+  if (params.categoryId) {
+    where.categoryId = params.categoryId;
+  } else if (params.categoryName) {
+    where.category = {
+      name: params.categoryName,
+    };
+  }
+
+  if (params.excludeBest) {
+    where.bestAnswerId = null;
+  }
+
+  return where;
+}
+
+function buildQuestionListOrderBy(sort: string): Prisma.QuestionOrderByWithRelationInput {
+  switch (sort) {
+    case "reward":
+      return { rewardAmount: "desc" };
+    case "answers":
+      return { answers: { _count: "desc" } };
+    case "latest":
+    case "new":
+    default:
+      return { createdAt: "desc" };
+  }
+}
+
+function buildQuestionExcerpt(content: string, maxLength = 120) {
+  const normalized = content.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength)}…`;
+}
+
 // ================================
 // 質問一覧（GET）
 // ================================
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const authUser = await getCurrentUser();
+    const url = new URL(req.url);
+    const q = url.searchParams.get("q")?.trim() ?? "";
+    const categoryId = url.searchParams.get("categoryId")?.trim() ?? "";
+    const categoryName = url.searchParams.get("category")?.trim() ?? "";
+    const sort = url.searchParams.get("sort")?.trim() ?? "latest";
+    const excludeBest =
+      url.searchParams.get("excludeBest") === "1" ||
+      url.searchParams.get("excludeBest") === "true";
+    const page = parsePositiveInt(url.searchParams.get("page"), DEFAULT_PAGE);
+    const limit = Math.min(
+      parsePositiveInt(url.searchParams.get("limit"), DEFAULT_LIMIT),
+      MAX_LIMIT
+    );
+    const skip = (page - 1) * limit;
 
-    const rawQuestions = await prisma.question.findMany({
-      where: {
-        cancellationRequests: {
-          none: {
-            status: "approved",
+    const where = buildQuestionListWhere({
+      q,
+      categoryId,
+      categoryName,
+      excludeBest,
+    });
+    const orderBy = buildQuestionListOrderBy(sort);
+
+    const [total, rawQuestions, rawCategories] = await prisma.$transaction([
+      prisma.question.count({ where }),
+      prisma.question.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          rewardAmount: true,
+          viewerPrice: true,
+          createdAt: true,
+          isClosed: true,
+          isPaid: true,
+          bestAnswerId: true,
+          userId: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              answers: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      include: { category: true, answers: true, images: true },
+      }),
+      prisma.category.findMany({
+        select: {
+          id: true,
+          name: true,
+        },
+      }),
+    ]);
+
+    const items = rawQuestions.map((question) => ({
+      id: question.id,
+      title: question.title,
+      content: buildQuestionExcerpt(question.content),
+      rewardAmount: question.rewardAmount,
+      viewerPrice: question.viewerPrice,
+      createdAt: question.createdAt,
+      isClosed: question.isClosed,
+      isPaid: question.isPaid,
+      bestAnswerId: question.bestAnswerId,
+      userId: question.userId,
+      category: question.category,
+      answerCount: question._count.answers,
+    }));
+
+    const totalPages = total === 0 ? 1 : Math.ceil(total / limit);
+    const categories = sortCategoryNames(rawCategories);
+
+    return NextResponse.json({
+      items,
+      categories,
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage: page < totalPages,
     });
-
-    const questions = rawQuestions.map((question) => {
-      const isAuthor = authUser?.id === question.userId;
-
-      const answers = question.answers.map((answer) => {
-        const isLockedBest = answer.id === question.bestAnswerId && !isAuthor;
-
-        if (isLockedBest) {
-          return {
-            ...answer,
-            content: null,
-            images: [],
-            comments: null,
-            locked: true,
-          };
-        }
-
-        return {
-          ...answer,
-          locked: false,
-        };
-      });
-
-      return {
-        ...question,
-        answers,
-      };
-    });
-
-    const categories = sortCategoryNames(
-      await prisma.category.findMany()
-    );
-
-    return NextResponse.json({ questions, categories });
   } catch (error) {
     console.error("❌ GET /api/questions Error:", error);
     return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
@@ -101,6 +226,11 @@ export async function POST(req: Request) {
     // --- Prisma.User に存在するか確認 ---
     let prismaUser = await prisma.user.findUnique({
       where: { id: user.id },
+      select: {
+        id: true,
+        ppConsentAt: true,
+        consentAt: true,
+      },
     });
 
     // 自動作成
@@ -109,6 +239,11 @@ export async function POST(req: Request) {
         data: {
           id: user.id,
           email: user.email!,
+        },
+        select: {
+          id: true,
+          ppConsentAt: true,
+          consentAt: true,
         },
       });
     }
@@ -192,45 +327,58 @@ export async function POST(req: Request) {
     // 2. 画像アップロード
     // ---------------------------
     const images = formData.getAll("images") as File[];
-    let sortOrder = 0;
+    const uploadedImages = await Promise.all(
+      images.map(async (file, index) => {
+        if (!(file instanceof File) || file.size === 0) {
+          return null;
+        }
 
-    for (const file of images) {
-      if (!(file instanceof File) || file.size === 0) continue;
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+        const safeName = safeFileName(file.name)
+          .replace(/\./g, "_")
+          .replace(/[^A-Za-z0-9_]/g, "_");
 
-      // 日本語 + ドット除去・安全名に変換
-      const safeName = safeFileName(file.name)
-        .replace(/\./g, "_") // ドット除去
-        .replace(/[^A-Za-z0-9_]/g, "_");
+        const fileName = `questions/${newQuestion.id}_${index}_${safeName}`;
 
-      const fileName = `questions/${newQuestion.id}_${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("question-images")
+          .upload(fileName, buffer, {
+            contentType: file.type,
+          });
 
-      const { error: uploadError } = await supabase.storage
-        .from("question-images")
-        .upload(fileName, buffer, {
-          contentType: file.type,
-        });
+        if (uploadError) {
+          console.error("画像アップロード失敗:", uploadError);
+          return null;
+        }
 
-      if (uploadError) {
-        console.error("画像アップロード失敗:", uploadError);
-        continue;
-      }
+        const { data: publicUrlData } = supabase.storage
+          .from("question-images")
+          .getPublicUrl(fileName);
 
-      const { data: publicUrlData } = supabase.storage
-        .from("question-images")
-        .getPublicUrl(fileName);
-
-      await prisma.questionImage.create({
-        data: {
+        return {
           questionId: newQuestion.id,
           url: publicUrlData.publicUrl,
-          sortOrder,
-        },
-      });
+          sortOrder: index,
+        };
+      })
+    );
 
-      sortOrder++;
+    const successfulImages = uploadedImages.filter(
+      (
+        image
+      ): image is {
+        questionId: string;
+        url: string;
+        sortOrder: number;
+      } => image !== null
+    );
+
+    if (successfulImages.length > 0) {
+      await prisma.questionImage.createMany({
+        data: successfulImages,
+      });
     }
 
     return NextResponse.json({ id: newQuestion.id });

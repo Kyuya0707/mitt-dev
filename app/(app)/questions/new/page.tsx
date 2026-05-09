@@ -41,6 +41,9 @@ export default function NewQuestionPage() {
   >([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState<
+    "idle" | "saving" | "checkout"
+  >("idle");
   const [ppConsentAt, setPpConsentAt] = useState<string | null>(null);
   const [consentLoading, setConsentLoading] = useState(false);
 
@@ -157,6 +160,7 @@ export default function NewQuestionPage() {
     }
 
     setLoading(true);
+    setSubmitPhase("saving");
 
     try {
       // --- FormData 準備 ---
@@ -179,6 +183,7 @@ export default function NewQuestionPage() {
       if (!res.ok) {
         setErrorMsg(toJapaneseErrorMessage(data, "投稿に失敗しました"));
         setLoading(false);
+        setSubmitPhase("idle");
         return;
       }
 
@@ -186,10 +191,12 @@ export default function NewQuestionPage() {
       if (!questionId) {
         setErrorMsg("質問IDの取得に失敗しました");
         setLoading(false);
+        setSubmitPhase("idle");
         return;
       }
 
       // ② ✅ 質問投稿支払い用 Checkout セッション作成（amountは送らない）
+      setSubmitPhase("checkout");
       const checkoutRes = await fetch("/api/checkout/question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -206,10 +213,12 @@ export default function NewQuestionPage() {
 
       alert(toJapaneseErrorMessage(checkoutData, "決済の開始に失敗しました"));
       setLoading(false);
+      setSubmitPhase("idle");
     } catch (err) {
       console.error(err);
       setErrorMsg(toJapaneseErrorMessage(err, "エラーが発生しました"));
       setLoading(false);
+      setSubmitPhase("idle");
     }
   };
 
@@ -500,11 +509,20 @@ export default function NewQuestionPage() {
               className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading
-                ? "投稿中…"
+                ? submitPhase === "checkout"
+                  ? "決済ページを準備中..."
+                  : "画像と投稿内容を保存中..."
                 : !canSubmitQuestion
                   ? "同意後に投稿できます"
                   : "投稿して支払いに進む"}
             </button>
+            {loading && (
+              <p className="text-xs leading-6 text-gray-500">
+                {submitPhase === "checkout"
+                  ? "投稿内容の保存が完了しました。決済ページへ移動します。"
+                  : "質問内容と添付画像を保存しています。画像が多い場合は少し時間がかかることがあります。"}
+              </p>
+            )}
             <p className="text-xs leading-6 text-gray-500">
               決済に進むことで、
               <Link href="/terms" className="mx-1 text-blue-600 underline">
