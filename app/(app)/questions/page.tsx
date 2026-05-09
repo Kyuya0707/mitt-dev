@@ -328,20 +328,20 @@ export default function QuestionsPage() {
       {/* 🔍 検索フォーム */}
       <form
         onSubmit={handleSubmit}
-        className="mb-6 flex flex-col sm:flex-row gap-2 items-stretch sm:items-end"
+        className="mb-6 flex flex-col gap-2 items-stretch lg:flex-row lg:flex-wrap lg:items-end"
       >
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="キーワードで検索..."
-          className="flex-1 border rounded px-3 py-2"
+          className="w-full border rounded px-3 py-2 lg:min-w-0 lg:flex-1"
         />
 
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="border rounded px-3 py-2"
+          className="w-full border rounded px-3 py-2 lg:w-auto lg:min-w-[11rem] lg:flex-none"
         >
           <option value="">すべてのカテゴリー</option>
           {categories.map((cat) => (
@@ -351,13 +351,17 @@ export default function QuestionsPage() {
           ))}
         </select>
 
-        <select value={sort} onChange={(e) => setSort(e.target.value)} className="border rounded px-3 py-2">
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="w-full border rounded px-3 py-2 lg:w-auto lg:min-w-[10rem] lg:flex-none"
+        >
           <option value="latest">新着順</option>
           <option value="reward">報酬額が高い順</option>
           <option value="answers">回答数が多い順</option>
         </select>
 
-        <label className="flex items-center gap-2 rounded border px-3 py-2 text-sm text-gray-700">
+        <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm text-gray-700 whitespace-nowrap lg:flex-none lg:shrink-0">
           <input
             type="checkbox"
             checked={excludeBestSelected}
@@ -366,7 +370,10 @@ export default function QuestionsPage() {
           <span>BEST選定済みを除く</span>
         </label>
 
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        <button
+          type="submit"
+          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 lg:flex-none lg:shrink-0"
+        >
           検索
         </button>
 
@@ -385,7 +392,7 @@ export default function QuestionsPage() {
               nextExcludeBestSelected: false,
             });
           }}
-          className="text-gray-600 underline px-2 py-2 text-sm hover:text-gray-800"
+          className="whitespace-nowrap px-2 py-2 text-sm text-gray-600 underline hover:text-gray-800 lg:flex-none lg:shrink-0"
         >
           クリア
         </button>

@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { CATEGORY_NAMES } from "@/lib/category-options";
+import {
+  AGE_GROUP_OPTIONS,
+  GENDER_OPTIONS,
+} from "@/lib/profile-demographics";
 import { validateUsername } from "@/lib/username";
 
 const INTEREST_OPTIONS = [...CATEGORY_NAMES];
@@ -69,6 +73,8 @@ type SignupDraft = {
   username: string;
   lastName: string;
   firstName: string;
+  ageGroup: string;
+  gender: string;
   bio: string;
   website: string;
   prefecture: string;
@@ -84,6 +90,8 @@ function getInitialSignupDraft(): SignupDraft {
       username: "",
       lastName: "",
       firstName: "",
+      ageGroup: "回答しない",
+      gender: "回答しない",
       bio: "",
       website: "",
       prefecture: "未選択",
@@ -105,6 +113,8 @@ function getInitialSignupDraft(): SignupDraft {
       username: draft.username ?? "",
       lastName: draft.lastName ?? "",
       firstName: draft.firstName ?? "",
+      ageGroup: draft.ageGroup ?? "回答しない",
+      gender: draft.gender ?? "回答しない",
       bio: draft.bio ?? "",
       website: draft.website ?? "",
       prefecture: draft.prefecture ?? "未選択",
@@ -118,6 +128,8 @@ function getInitialSignupDraft(): SignupDraft {
       username: "",
       lastName: "",
       firstName: "",
+      ageGroup: "回答しない",
+      gender: "回答しない",
       bio: "",
       website: "",
       prefecture: "未選択",
@@ -190,6 +202,8 @@ export default function SignupPage() {
   const [username, setUsername] = useState(initialDraft.username);
   const [lastName, setLastName] = useState(initialDraft.lastName);
   const [firstName, setFirstName] = useState(initialDraft.firstName);
+  const [ageGroup, setAgeGroup] = useState(initialDraft.ageGroup);
+  const [gender, setGender] = useState(initialDraft.gender);
 
   const [bio, setBio] = useState(initialDraft.bio);
   const [website, setWebsite] = useState(initialDraft.website);
@@ -217,6 +231,8 @@ export default function SignupPage() {
       username,
       lastName,
       firstName,
+      ageGroup,
+      gender,
       bio,
       website,
       prefecture,
@@ -229,6 +245,8 @@ export default function SignupPage() {
       username,
       lastName,
       firstName,
+      ageGroup,
+      gender,
       bio,
       website,
       prefecture,
@@ -357,6 +375,8 @@ export default function SignupPage() {
         data: {
           full_name: fullName,
           username: usernameValidation.value,
+          age_group: ageGroup,
+          gender,
           bio,
           website,
           prefecture,
@@ -483,6 +503,38 @@ export default function SignupPage() {
           <p className="mt-1 text-xs text-gray-500">
             3〜20文字で設定できます。日本語も使えます
           </p>
+        </div>
+
+        {/* 年代 */}
+        <div>
+          <label className="block text-gray-700 mb-1">年代（任意）</label>
+          <select
+            className="w-full border p-2 rounded text-black"
+            value={ageGroup}
+            onChange={(e) => setAgeGroup(e.target.value)}
+          >
+            {AGE_GROUP_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 性別 */}
+        <div>
+          <label className="block text-gray-700 mb-1">性別（任意）</label>
+          <select
+            className="w-full border p-2 rounded text-black"
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+          >
+            {GENDER_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* メール */}

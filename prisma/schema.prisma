@@ -41,6 +41,8 @@ model User {
   name               String?
   createdAt          DateTime @default(now())
   interestCategories String[] @default([])
+  ageGroup           String?
+  gender             String?
 
   consentAt DateTime?
 

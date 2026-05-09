@@ -4,6 +4,7 @@ import { resolveAuthRedirect } from "@/lib/auth-redirect";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { sendLoginNotificationEmail } from "@/lib/notifications";
 import { supabaseServer } from "@/lib/supabase-server";
+import { isAgeGroup, isGender } from "@/lib/profile-demographics";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 function getSafeErrorMessage(error: unknown) {
@@ -48,6 +49,8 @@ export async function GET(request: Request) {
         typeof metadata.username === "string" ? metadata.username : undefined,
       name:
         typeof metadata.full_name === "string" ? metadata.full_name : undefined,
+      ageGroup: isAgeGroup(metadata.age_group) ? metadata.age_group : undefined,
+      gender: isGender(metadata.gender) ? metadata.gender : undefined,
       interests: Array.isArray(metadata.interests)
         ? metadata.interests.filter(
             (value): value is string => typeof value === "string"
@@ -84,5 +87,14 @@ export async function GET(request: Request) {
     loginNotificationTriggered,
   });
 
-  return NextResponse.redirect(new URL(redirectTo, url.origin));
+  if (!user?.id) {
+    return NextResponse.redirect(new URL(redirectTo, url.origin));
+  }
+
+  return NextResponse.redirect(
+    new URL(
+      `/auth/verified?redirectTo=${encodeURIComponent(redirectTo)}`,
+      url.origin
+    )
+  );
 }

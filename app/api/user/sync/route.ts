@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
+import { isAgeGroup, isGender } from "@/lib/profile-demographics";
 import { validateUsername } from "@/lib/username";
 import { getSafeErrorCode, getSafeErrorMessage } from "@/lib/safe-error";
 
@@ -21,6 +22,8 @@ export async function POST(req: Request) {
     const requestedId = body.id as string | undefined;
     const username = body.username as string | undefined;
     const name = body.name as string | undefined;
+    const ageGroup = isAgeGroup(body.ageGroup) ? body.ageGroup : undefined;
+    const gender = isGender(body.gender) ? body.gender : undefined;
     const interests = Array.isArray(body.interests)
       ? body.interests.filter(
           (value: unknown): value is string => typeof value === "string"
@@ -54,6 +57,8 @@ export async function POST(req: Request) {
       email: currentUser.email,
       username,
       name,
+      ageGroup,
+      gender,
       interests,
       ppConsentAt,
       ppConsentVersion,

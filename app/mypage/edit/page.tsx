@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { CATEGORY_NAMES } from "@/lib/category-options";
+import {
+  AGE_GROUP_OPTIONS,
+  GENDER_OPTIONS,
+  isAgeGroup,
+  isGender,
+} from "@/lib/profile-demographics";
 import { validateUsername } from "@/lib/username";
 
 const INTEREST_OPTIONS = [...CATEGORY_NAMES];
@@ -24,6 +30,8 @@ const PREFECTURES = [
 type Meta = {
   full_name?: string;
   username?: string;
+  age_group?: string;
+  gender?: string;
   bio?: string;
   website?: string;
   prefecture?: string;
@@ -41,6 +49,8 @@ export default function MyPageEdit() {
   const [email, setEmail] = useState<string>(""); // 表示のみ（編集は次STEP）
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
+  const [ageGroup, setAgeGroup] = useState("回答しない");
+  const [gender, setGender] = useState("回答しない");
   const [bio, setBio] = useState("");
   const [website, setWebsite] = useState("");
   const [prefecture, setPrefecture] = useState("未選択");
@@ -75,6 +85,8 @@ export default function MyPageEdit() {
 
       setFullName(meta.full_name ?? "");
       setUsername(meta.username ?? "");
+      setAgeGroup(isAgeGroup(meta.age_group) ? meta.age_group : "回答しない");
+      setGender(isGender(meta.gender) ? meta.gender : "回答しない");
       setBio(meta.bio ?? "");
       setWebsite(meta.website ?? "");
       setPrefecture(meta.prefecture ?? "未選択");
@@ -167,6 +179,8 @@ export default function MyPageEdit() {
         data: {
           full_name: fullName,
           username: usernameValidation.value,
+          age_group: ageGroup,
+          gender,
           bio,
           website,
           prefecture,
@@ -188,6 +202,8 @@ export default function MyPageEdit() {
           email: user.email,
           username: usernameValidation.value,
           name: fullName,
+          ageGroup,
+          gender,
           interests,
         }),
       });
@@ -295,6 +311,38 @@ export default function MyPageEdit() {
           <p className="mt-1 text-xs text-gray-500">
             3〜20文字で設定できます。日本語も使えます
           </p>
+        </div>
+
+        {/* 年代 */}
+        <div>
+          <label className="block text-sm font-semibold mb-1">年代（任意）</label>
+          <select
+            value={ageGroup}
+            onChange={(e) => setAgeGroup(e.target.value)}
+            className="w-full rounded-xl border p-2"
+          >
+            {AGE_GROUP_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 性別 */}
+        <div>
+          <label className="block text-sm font-semibold mb-1">性別（任意）</label>
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            className="w-full rounded-xl border p-2"
+          >
+            {GENDER_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* 自己紹介 */}

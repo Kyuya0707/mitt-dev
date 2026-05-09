@@ -106,6 +106,8 @@ export default async function MyPage({
   const meta = (user.user_metadata ?? {}) as {
     full_name?: string;
     username?: string;
+    age_group?: string;
+    gender?: string;
     bio?: string;
     website?: string;
     prefecture?: string;
@@ -126,6 +128,8 @@ export default async function MyPage({
       email: user.email,
       username: meta.username,
       name: meta.full_name,
+      ageGroup: meta.age_group,
+      gender: meta.gender,
       interests: Array.isArray(meta.interests) ? meta.interests : [],
     });
     ensureDuration = durationMs(ensureStart);
@@ -167,6 +171,8 @@ export default async function MyPage({
       email: true,
       username: true,
       name: true,
+      ageGroup: true,
+      gender: true,
       displayId: true,
       ppConsentAt: true,
       interestCategories: true,
@@ -239,6 +245,8 @@ export default async function MyPage({
       : dbUser.interestCategories.length > 0
         ? dbUser.interestCategories.join(" / ")
         : "未設定";
+  const ageGroupText = meta.age_group || dbUser.ageGroup || "未設定";
+  const genderText = meta.gender || dbUser.gender || "未設定";
   const avatarUrl =
     typeof meta.avatar_url === "string" && meta.avatar_url.trim().length > 0
       ? meta.avatar_url
@@ -339,6 +347,8 @@ export default async function MyPage({
               <InfoRow label="ユーザー名" value={dbUser.username || "未設定"} />
               <InfoRow label="表示ID" value={displayId} />
               <InfoRow label="メールアドレス" value={user.email ?? dbUser.email} />
+              <InfoRow label="年代" value={ageGroupText} />
+              <InfoRow label="性別" value={genderText} />
               <InfoRow label="地域" value={meta.prefecture || "未設定"} />
               <InfoRow
                 label="SNS / Webサイト"

@@ -12,6 +12,8 @@ type EnsurePrismaUserInput = {
   username?: string | null;
   name?: string | null;
   interests?: string[] | null;
+  ageGroup?: string | null;
+  gender?: string | null;
   ppConsentAt?: Date | null;
   ppConsentVersion?: string | null;
 };
@@ -196,6 +198,8 @@ export async function ensurePrismaUser({
   username,
   name,
   interests,
+  ageGroup,
+  gender,
   ppConsentAt,
   ppConsentVersion,
 }: EnsurePrismaUserInput) {
@@ -204,6 +208,14 @@ export async function ensurePrismaUser({
   const normalizedInterests = Array.isArray(interests)
     ? interests.filter((item): item is string => typeof item === "string")
     : [];
+  const normalizedAgeGroup =
+    typeof ageGroup === "string" && ageGroup.trim().length > 0
+      ? ageGroup.trim()
+      : undefined;
+  const normalizedGender =
+    typeof gender === "string" && gender.trim().length > 0
+      ? gender.trim()
+      : undefined;
 
   const existingUser = await prisma.user.findUnique({
     where: { id },
@@ -214,6 +226,8 @@ export async function ensurePrismaUser({
       username: true,
       name: true,
       interestCategories: true,
+      ageGroup: true,
+      gender: true,
       ppConsentAt: true,
       ppConsentVersion: true,
       notificationPreference: {
@@ -242,6 +256,11 @@ export async function ensurePrismaUser({
       existingUser.interestCategories ?? [],
       normalizedInterests
     );
+    const ageGroupChanged =
+      normalizedAgeGroup !== undefined &&
+      existingUser.ageGroup !== normalizedAgeGroup;
+    const genderChanged =
+      normalizedGender !== undefined && existingUser.gender !== normalizedGender;
     const consentChanged = Boolean(
       ppConsentAt && !areDatesEqual(existingUser.ppConsentAt, ppConsentAt)
     );
@@ -253,6 +272,8 @@ export async function ensurePrismaUser({
       emailChanged ||
       nameChanged ||
       interestsChanged ||
+      ageGroupChanged ||
+      genderChanged ||
       consentChanged ||
       consentVersionChanged;
 
@@ -267,6 +288,8 @@ export async function ensurePrismaUser({
         email: existingUser.email,
         username: existingUser.username,
         name: existingUser.name,
+        ageGroup: existingUser.ageGroup,
+        gender: existingUser.gender,
       };
     }
 
@@ -287,6 +310,8 @@ export async function ensurePrismaUser({
       email: existingUser.email,
       username: nextUsername,
       name: existingUser.name,
+      ageGroup: existingUser.ageGroup,
+      gender: existingUser.gender,
     };
 
     if (needsUpdate) {
@@ -300,6 +325,8 @@ export async function ensurePrismaUser({
           ...(interestsChanged
             ? { interestCategories: normalizedInterests }
             : {}),
+          ...(ageGroupChanged ? { ageGroup: normalizedAgeGroup } : {}),
+          ...(genderChanged ? { gender: normalizedGender } : {}),
           ...(nameChanged ? { name: normalizedName } : {}),
           ...(consentChanged ? { ppConsentAt } : {}),
           ...(consentVersionChanged ? { ppConsentVersion } : {}),
@@ -310,6 +337,8 @@ export async function ensurePrismaUser({
           email: true,
           username: true,
           name: true,
+          ageGroup: true,
+          gender: true,
         },
       });
     }
@@ -343,6 +372,8 @@ export async function ensurePrismaUser({
       username: resolvedUsername,
       interestCategories: normalizedInterests,
       ...(normalizedName ? { name: normalizedName } : {}),
+      ...(normalizedAgeGroup ? { ageGroup: normalizedAgeGroup } : {}),
+      ...(normalizedGender ? { gender: normalizedGender } : {}),
       ...(ppConsentAt ? { ppConsentAt } : {}),
       ...(ppConsentVersion ? { ppConsentVersion } : {}),
     },
@@ -352,6 +383,8 @@ export async function ensurePrismaUser({
       email: true,
       username: true,
       name: true,
+      ageGroup: true,
+      gender: true,
     },
   });
 
