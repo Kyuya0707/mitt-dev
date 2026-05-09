@@ -184,8 +184,7 @@ export default function QuestionsPage() {
         nextSort,
         nextExcludeBestSelected,
       });
-    } catch (err) {
-      console.error("データ取得に失敗:", err);
+    } catch {
       setErrorMsg("質問一覧の取得に失敗しました。");
     } finally {
       setLoading(false);
@@ -239,8 +238,7 @@ export default function QuestionsPage() {
           nextSort: sort,
           nextExcludeBestSelected: excludeBestSelected,
         });
-      } catch (err) {
-        console.error("データ取得に失敗:", err);
+      } catch {
         setErrorMsg("質問一覧の取得に失敗しました。");
       } finally {
         setLoading(false);

@@ -110,7 +110,6 @@ export default function AnswerCard({
       if (data.success) window.location.reload();
       else alert(toJapaneseErrorMessage(data, "BEST設定に失敗しました"));
     } catch (error) {
-      console.error(error);
       alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     }
   };
@@ -187,7 +186,6 @@ export default function AnswerCard({
 
       window.location.reload();
     } catch (error) {
-      console.error(error);
       alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     }
   };
@@ -221,7 +219,6 @@ export default function AnswerCard({
 
       window.location.href = data.url;
     } catch (error) {
-      console.error(error);
       alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     }
   };
@@ -259,7 +256,6 @@ export default function AnswerCard({
 
       window.location.href = data.url;
     } catch (error) {
-      console.error(error);
       alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     } finally {
       setBestCheckoutLoading(false);

@@ -51,14 +51,11 @@ function LoginForm() {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
-        }).catch((notificationError) => {
-          console.error("Login notification request failed:", notificationError);
-        });
+        }).catch(() => {});
       }
 
       window.location.assign(redirectTo);
     } catch (err) {
-      console.error(err);
       setErrorMsg(toJapaneseErrorMessage(err, "ログイン中にエラーが発生しました"));
     } finally {
       setLoading(false);

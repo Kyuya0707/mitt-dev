@@ -2,7 +2,6 @@
 "use server";
 
 import { PrismaClient } from "@prisma/client";
-import { cookies } from "next/headers";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { revalidatePath } from "next/cache";
 
@@ -18,7 +17,6 @@ function safeFileName(originalName: string) {
 }
 
 export async function createAnswerAction(formData: FormData) {
-  const cookieStore = await cookies();
   const supabase = createClientBrowser();
 
   const {
@@ -63,10 +61,7 @@ export async function createAnswerAction(formData: FormData) {
         contentType: file.type,
       });
 
-    if (uploadError) {
-      console.error("画像アップロード失敗:", uploadError);
-      continue;
-    }
+    if (uploadError) continue;
 
     const { data: publicUrlData } = supabase.storage
       .from("answers")

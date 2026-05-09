@@ -189,7 +189,6 @@ export default function WelcomePage() {
     const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser();
       if (error) {
-        console.warn("⚠️ Supabase getUser error:", error.message);
         setUser(null);
         return;
       }

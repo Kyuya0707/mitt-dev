@@ -17,8 +17,6 @@ export default function PaymentTestPage() {
     });
 
     const data = await res.json();
-    console.log("🔵 /api/checkout/sessions response:", data);
-
     if (res.ok && data.url) {
       window.location.href = data.url;
     } else {

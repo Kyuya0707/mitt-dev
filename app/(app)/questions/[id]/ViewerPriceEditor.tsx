@@ -43,8 +43,7 @@ export default function ViewerPriceEditor({
       setViewerPrice(data.viewerPrice ?? viewerPrice);
       setMessage("BEST閲覧価格を更新しました");
       window.location.reload();
-    } catch (e) {
-      console.error(e);
+    } catch {
       setError("通信エラーが発生しました");
     } finally {
       setSaving(false);

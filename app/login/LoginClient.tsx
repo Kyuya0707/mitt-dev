@@ -30,9 +30,7 @@ export default function LoginClient({ redirectTo }: { redirectTo: string }) {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
-        }).catch((notificationError) => {
-          console.error("Login notification request failed:", notificationError);
-        });
+        }).catch(() => {});
       }
 
       window.location.href = redirectTo;

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useNotifications } from "@/app/context/NotificationContext";
 
 export default function Header() {
   const { count } = useNotifications(); // ← 未読数はここだけを使う！
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const supabase = supabaseBrowser();
@@ -15,7 +16,6 @@ export default function Header() {
     const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser();
       if (error) {
-        console.warn("⚠️ Supabase getUser error:", error.message);
         return;
       }
       setUser(data.user ?? null);

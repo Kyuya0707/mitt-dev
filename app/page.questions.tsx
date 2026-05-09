@@ -3,13 +3,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type QuestionListItem = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string | Date;
+  rewardAmount: number;
+  category: { name: string } | null;
+  answers: unknown[];
+};
+
 function highlight(text: string, keyword: string) {
   if (!keyword) return text;
   const regex = new RegExp(`(${keyword})`, "gi");
   return text.replace(regex, "<mark class='bg-yellow-200'>$1</mark>");
 }
 
-function extractPopularTags(questions: any[]) {
+function extractPopularTags(questions: QuestionListItem[]) {
   const wordCount: Record<string, number> = {};
   const stopWords = ["です", "ます", "こと", "よう", "する", "ある", "いる", "これ", "それ", "あれ", "の", "に", "を", "が", "は"];
 
@@ -31,21 +41,31 @@ function extractPopularTags(questions: any[]) {
 }
 
 export default function HomePageWrapper() {
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [query, setQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [sort, setSort] = useState("new");
+  const [questions, setQuestions] = useState<QuestionListItem[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
+    []
+  );
+  const [query, setQuery] = useState(() =>
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("q") || ""
+      : ""
+  );
+  const [selectedCategory, setSelectedCategory] = useState(() =>
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("category") || ""
+      : ""
+  );
+  const [sort, setSort] = useState(() =>
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("sort") || "new"
+      : "new"
+  );
   const [popularTags, setPopularTags] = useState<string[]>([]);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-
-  // 📌 URLパラメータを初期値として読み込む
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setQuery(params.get("q") || "");
-    setSelectedCategory(params.get("category") || "");
-    setSort(params.get("sort") || "new");
-  }, []);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() =>
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("search-history") || "[]")
+      : []
+  );
 
   // 📌 APIから質問・カテゴリーを取得
   useEffect(() => {
@@ -59,9 +79,7 @@ export default function HomePageWrapper() {
         setQuestions(data.questions || []);
         setCategories(data.categories || []);
         setPopularTags(extractPopularTags(data.questions || []));
-      } catch (err) {
-        console.error("データ取得に失敗:", err);
-      }
+      } catch {}
     }
     fetchData();
   }, []);
@@ -206,22 +224,22 @@ export default function HomePageWrapper() {
       </form>
 
       <div className="w-full flex justify-end mb-6">
-        <a
+        <Link
           href="/questions/new"
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
         >
           質問を投稿する
-        </a>
+        </Link>
       </div>
 
       {/* ▼ マイページへのリンク */}
       <div className="flex justify-end mb-4">
-        <a
+        <Link
           href="/mypage"
           className="text-sm text-blue-600 underline hover:text-blue-800"
         >
           マイページ
-        </a>
+        </Link>
       </div>
 
       <h1 className="text-2xl font-bold mb-4">最新の質問</h1>

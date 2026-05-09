@@ -28,14 +28,7 @@ export default function LoginPage() {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
-        }).catch((notificationError) => {
-          console.error("Login notification request failed:", {
-            message:
-              notificationError instanceof Error
-                ? notificationError.message
-                : "unknown_error",
-          });
-        });
+        }).catch(() => {});
       }
 
       window.location.href = "/"; // ✔ トップに戻す

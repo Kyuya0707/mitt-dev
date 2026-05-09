@@ -19,9 +19,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const res = await fetch("/api/notifications/count", { cache: "no-store" });
       const data = await res.json();
       setCount(data.count ?? 0);
-    } catch (err) {
-      console.error("❌ fetch unread-count failed:", err);
-    }
+    } catch {}
   };
 
   useEffect(() => {

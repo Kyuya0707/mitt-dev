@@ -215,7 +215,6 @@ export default function NewQuestionPage() {
       setLoading(false);
       setSubmitPhase("idle");
     } catch (err) {
-      console.error(err);
       setErrorMsg(toJapaneseErrorMessage(err, "エラーが発生しました"));
       setLoading(false);
       setSubmitPhase("idle");

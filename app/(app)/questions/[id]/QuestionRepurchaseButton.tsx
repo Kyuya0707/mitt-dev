@@ -38,8 +38,7 @@ export default function QuestionRepurchaseButton({
       }
 
       window.location.href = data.url;
-    } catch (error) {
-      console.error(error);
+    } catch {
       alert("通信エラーが発生しました");
     } finally {
       setLoading(false);

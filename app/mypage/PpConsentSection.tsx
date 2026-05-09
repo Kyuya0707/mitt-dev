@@ -60,8 +60,7 @@ export default function PpConsentSection({
       if (refreshOnSuccess) {
         window.location.assign(redirectTo);
       }
-    } catch (error) {
-      console.error("[pp-consent][mypage] request error", error);
+    } catch {
       setErrorMsg("同意の保存中にエラーが発生しました");
     } finally {
       setSaving(false);
