@@ -2,6 +2,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { supabaseServer } from "@/lib/supabase-server";
+import {
+  NOTIFICATION_TYPES,
+  safeCreateUserNotification,
+} from "@/lib/notifications";
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +36,15 @@ export async function POST(req: Request) {
         status: true,
         answer: {
           select: {
-            question: { select: { userId: true } },
+            id: true,
+            userId: true,
+            question: {
+              select: {
+                id: true,
+                userId: true,
+                title: true,
+              },
+            },
           },
         },
       },
@@ -64,6 +76,32 @@ export async function POST(req: Request) {
       where: { id: negotiationId },
       data: { status: "REJECTED" },
     });
+
+    const answerAuthorId = negotiation.answer?.userId;
+    const questionId = negotiation.answer?.question?.id;
+    const questionTitle = negotiation.answer?.question?.title ?? "質問";
+    const answerId = negotiation.answer?.id;
+
+    if (
+      answerAuthorId &&
+      answerAuthorId !== user.id &&
+      questionId &&
+      answerId
+    ) {
+      await safeCreateUserNotification({
+        userId: answerAuthorId,
+        actorUserId: user.id,
+        type: NOTIFICATION_TYPES.NEGOTIATION_REJECTED,
+        message: `「${questionTitle}」の交渉が見送られました。`,
+        url: `/questions/${questionId}?from=notification`,
+        data: {
+          questionId,
+          answerId,
+          negotiationId,
+        },
+        context: "negotiation_rejected",
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {

@@ -12,6 +12,7 @@ export const NOTIFICATION_TYPES = {
   BEST_SELECTED: "BEST_SELECTED",
   NEGOTIATION_CREATED: "NEGOTIATION_CREATED",
   NEGOTIATION_ACCEPTED: "NEGOTIATION_ACCEPTED",
+  NEGOTIATION_REJECTED: "NEGOTIATION_REJECTED",
   CATEGORY_QUESTION_CREATED: "CATEGORY_QUESTION_CREATED",
 } as const;
 
@@ -45,6 +46,7 @@ type EmailPreferenceKey =
   | "emailOnBestSelected"
   | "emailOnNegotiationCreated"
   | "emailOnNegotiationAccepted"
+  | "emailOnNegotiationRejected"
   | "emailOnCategoryQuestionCreated"
   | "emailOnLogin";
 
@@ -54,6 +56,7 @@ const EMAIL_PREFERENCE_KEY_BY_TYPE: Record<NotificationType, EmailPreferenceKey>
   BEST_SELECTED: "emailOnBestSelected",
   NEGOTIATION_CREATED: "emailOnNegotiationCreated",
   NEGOTIATION_ACCEPTED: "emailOnNegotiationAccepted",
+  NEGOTIATION_REJECTED: "emailOnNegotiationRejected",
   CATEGORY_QUESTION_CREATED: "emailOnCategoryQuestionCreated",
 };
 
@@ -77,6 +80,8 @@ function getNotificationSubject(type: NotificationType) {
       return "交渉提案が届きました";
     case NOTIFICATION_TYPES.NEGOTIATION_ACCEPTED:
       return "交渉提案が承認されました";
+    case NOTIFICATION_TYPES.NEGOTIATION_REJECTED:
+      return "交渉が見送られました";
     case NOTIFICATION_TYPES.CATEGORY_QUESTION_CREATED:
       return "興味カテゴリの質問が公開されました";
   }

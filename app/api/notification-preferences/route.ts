@@ -31,6 +31,7 @@ export async function PUT(req: Request) {
       emailOnBestSelected: Boolean(body.emailOnBestSelected),
       emailOnNegotiationCreated: Boolean(body.emailOnNegotiationCreated),
       emailOnNegotiationAccepted: Boolean(body.emailOnNegotiationAccepted),
+      emailOnNegotiationRejected: Boolean(body.emailOnNegotiationRejected),
       emailOnCategoryQuestionCreated: Boolean(
         body.emailOnCategoryQuestionCreated
       ),
@@ -43,6 +44,7 @@ export async function PUT(req: Request) {
       emailOnBestSelected: Boolean(body.emailOnBestSelected),
       emailOnNegotiationCreated: Boolean(body.emailOnNegotiationCreated),
       emailOnNegotiationAccepted: Boolean(body.emailOnNegotiationAccepted),
+      emailOnNegotiationRejected: Boolean(body.emailOnNegotiationRejected),
       emailOnCategoryQuestionCreated: Boolean(
         body.emailOnCategoryQuestionCreated
       ),

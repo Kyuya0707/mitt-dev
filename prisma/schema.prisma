@@ -325,6 +325,7 @@ model NotificationPreference {
   emailOnBestSelected            Boolean @default(true)
   emailOnNegotiationCreated      Boolean @default(true)
   emailOnNegotiationAccepted     Boolean @default(true)
+  emailOnNegotiationRejected     Boolean @default(true)
   emailOnCategoryQuestionCreated Boolean @default(true)
   emailOnLogin                   Boolean @default(true)
 

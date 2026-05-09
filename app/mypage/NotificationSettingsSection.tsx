@@ -9,6 +9,7 @@ type NotificationPreferences = {
   emailOnBestSelected: boolean;
   emailOnNegotiationCreated: boolean;
   emailOnNegotiationAccepted: boolean;
+  emailOnNegotiationRejected: boolean;
   emailOnCategoryQuestionCreated: boolean;
   emailOnLogin: boolean;
 };
@@ -19,6 +20,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   emailOnBestSelected: true,
   emailOnNegotiationCreated: true,
   emailOnNegotiationAccepted: true,
+  emailOnNegotiationRejected: true,
   emailOnCategoryQuestionCreated: true,
   emailOnLogin: true,
 };
@@ -32,6 +34,7 @@ const SETTINGS: Array<{
   { key: "emailOnBestSelected", label: "自分の回答がBESTに選ばれた" },
   { key: "emailOnNegotiationCreated", label: "交渉が届いた" },
   { key: "emailOnNegotiationAccepted", label: "交渉が承認された" },
+  { key: "emailOnNegotiationRejected", label: "交渉が見送られた" },
   {
     key: "emailOnCategoryQuestionCreated",
     label: "自分の興味カテゴリに一致する質問が公開された",
@@ -61,6 +64,9 @@ export default function NotificationSettingsSection() {
             emailOnBestSelected: Boolean(data.emailOnBestSelected),
             emailOnNegotiationCreated: Boolean(data.emailOnNegotiationCreated),
             emailOnNegotiationAccepted: Boolean(data.emailOnNegotiationAccepted),
+            emailOnNegotiationRejected: Boolean(
+              data.emailOnNegotiationRejected
+            ),
             emailOnCategoryQuestionCreated: Boolean(
               data.emailOnCategoryQuestionCreated
             ),
