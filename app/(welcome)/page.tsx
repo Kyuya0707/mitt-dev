@@ -272,22 +272,19 @@ export default function WelcomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.9, delay: 0.25 }}
               >
-                <span className="text-white">検索ではなく、</span>
-                <br />
-                <span className="text-yellow-400">経験者にたどり着く。</span>
+                <span className="text-white">Know</span>
+                <span className="text-yellow-400">Value</span>
               </motion.h1>
 
               <motion.p
-                className="mt-6 text-base leading-relaxed text-white/85 sm:text-lg"
+                className="mt-6 text-2xl font-bold leading-relaxed text-white/90 sm:text-3xl"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.0, delay: 0.55 }}
               >
-                KnowValue は、
+                あなたの経験が、
                 <br />
-                実体験や知見に報酬が支払われる
-                <br className="hidden sm:block" />
-                Q&amp;Aサービスです。
+                誰かの答えになる。
               </motion.p>
 
               <motion.p
@@ -296,9 +293,9 @@ export default function WelcomePage() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.0, delay: 0.68 }}
               >
-                AIではなく、
+                質問にも、回答にも、
                 <br className="sm:hidden" />
-                本当に経験した人に、直接聞ける。
+                価値がある。
               </motion.p>
 
               <motion.p
