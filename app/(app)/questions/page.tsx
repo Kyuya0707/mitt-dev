@@ -328,74 +328,78 @@ export default function QuestionsPage() {
       {/* 🔍 検索フォーム */}
       <form
         onSubmit={handleSubmit}
-        className="mb-6 flex flex-col gap-2 items-stretch lg:flex-row lg:flex-wrap lg:items-end"
+        className="mb-6 space-y-3"
       >
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="キーワードで検索..."
-          className="w-full border rounded px-3 py-2 lg:min-w-0 lg:flex-1"
-        />
-
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="w-full border rounded px-3 py-2 lg:w-auto lg:min-w-[11rem] lg:flex-none"
-        >
-          <option value="">すべてのカテゴリー</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="w-full border rounded px-3 py-2 lg:w-auto lg:min-w-[10rem] lg:flex-none"
-        >
-          <option value="latest">新着順</option>
-          <option value="reward">報酬額が高い順</option>
-          <option value="answers">回答数が多い順</option>
-        </select>
-
-        <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm text-gray-700 whitespace-nowrap lg:flex-none lg:shrink-0">
+        <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <input
-            type="checkbox"
-            checked={excludeBestSelected}
-            onChange={(e) => setExcludeBestSelected(e.target.checked)}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="キーワードで検索..."
+            className="w-full border rounded px-3 py-2 lg:min-w-[320px]"
           />
-          <span>BEST選定済みを除く</span>
-        </label>
 
-        <button
-          type="submit"
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 lg:flex-none lg:shrink-0"
-        >
-          検索
-        </button>
+          <button
+            type="submit"
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 lg:shrink-0"
+          >
+            検索
+          </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setQuery("");
-            setSelectedCategory("");
-            setSort("latest");
-            setExcludeBestSelected(false);
-            void fetchQuestions({
-              nextPage: 1,
-              nextQuery: "",
-              nextCategoryId: "",
-              nextSort: "latest",
-              nextExcludeBestSelected: false,
-            });
-          }}
-          className="whitespace-nowrap px-2 py-2 text-sm text-gray-600 underline hover:text-gray-800 lg:flex-none lg:shrink-0"
-        >
-          クリア
-        </button>
+        <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full border rounded px-3 py-2 lg:w-auto lg:min-w-[11rem] lg:flex-none"
+          >
+            <option value="">すべてのカテゴリー</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="w-full border rounded px-3 py-2 lg:w-auto lg:min-w-[10rem] lg:flex-none"
+          >
+            <option value="latest">新着順</option>
+            <option value="reward">報酬額が高い順</option>
+            <option value="answers">回答数が多い順</option>
+          </select>
+
+          <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm text-gray-700 whitespace-nowrap lg:flex-none lg:shrink-0">
+            <input
+              type="checkbox"
+              checked={excludeBestSelected}
+              onChange={(e) => setExcludeBestSelected(e.target.checked)}
+            />
+            <span>BEST選定済みを除く</span>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setSelectedCategory("");
+              setSort("latest");
+              setExcludeBestSelected(false);
+              void fetchQuestions({
+                nextPage: 1,
+                nextQuery: "",
+                nextCategoryId: "",
+                nextSort: "latest",
+                nextExcludeBestSelected: false,
+              });
+            }}
+            className="whitespace-nowrap px-2 py-2 text-sm text-gray-600 underline hover:text-gray-800 lg:flex-none lg:shrink-0"
+          >
+            クリア
+          </button>
+        </div>
       </form>
 
       <div className="w-full flex justify-end mb-6">
