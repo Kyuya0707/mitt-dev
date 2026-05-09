@@ -44,18 +44,6 @@ export default function AnswerForm({
     setAgree(!!ppConsentAt);
   }, [ppConsentAt]);
 
-  useEffect(() => {
-    console.log("[pp-consent][AnswerForm] render", {
-      questionId,
-      isLoggedIn: true,
-      isClosed: false,
-      ppConsentAt,
-      agree,
-      redirectTo: answerPagePath,
-      finalRedirect: agree ? answerPagePath : loginRedirectTo,
-    });
-  }, [agree, answerPagePath, loginRedirectTo, ppConsentAt, questionId]);
-
   const toQuote = (text: string) => {
     const lines = (text ?? "").split("\n");
     return lines.map((l) => `> ${l}`).join("\n");
@@ -196,11 +184,6 @@ export default function AnswerForm({
     setConsentSaving(true);
     setErrorMsg("");
 
-    console.log("[pp-consent][AnswerForm] save start", {
-      questionId,
-      redirectTo: answerPagePath,
-    });
-
     try {
       const res = await fetch("/api/user/pp-consent", {
         method: "POST",
@@ -211,42 +194,18 @@ export default function AnswerForm({
       const data = await res.json().catch(() => null);
 
       if (res.status === 401) {
-        console.error("[pp-consent][AnswerForm] unauthorized", {
-          questionId,
-          redirectTo: answerPagePath,
-          response: data,
-        });
-        console.log("[pp-consent][AnswerForm] redirect login", {
-          redirectTo: loginRedirectTo,
-        });
         window.location.href = loginRedirectTo;
         return;
       }
 
       if (!res.ok) {
-        console.error("[pp-consent][AnswerForm] save failed", {
-          questionId,
-          redirectTo: answerPagePath,
-          response: data,
-        });
         setErrorMsg(data?.error || "同意の保存に失敗しました");
         setAgree(false);
         return;
       }
 
-      console.log("[pp-consent][AnswerForm] save success", {
-        questionId,
-        redirectTo: answerPagePath,
-        userId: data?.userId,
-        ppConsentAt: data?.ppConsentAt,
-      });
       setAgree(true);
-    } catch (error) {
-      console.error("[pp-consent][AnswerForm] request error", {
-        questionId,
-        redirectTo: answerPagePath,
-        error,
-      });
+    } catch {
       setErrorMsg("同意の保存中にエラーが発生しました");
       setAgree(false);
     } finally {

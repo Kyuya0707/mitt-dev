@@ -11,6 +11,10 @@ import ReferralLinkButton from "@/app/components/ReferralLinkButton";
 import MyPageCard from "./MyPageCard";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown_error";
+}
+
 function getDisplayName(input: {
   username?: string | null;
   name?: string | null;
@@ -126,7 +130,9 @@ export default async function MyPage({
     });
     ensureDuration = durationMs(ensureStart);
   } catch (syncError) {
-    console.error("Failed to ensure Prisma user on mypage:", syncError);
+    console.error("Failed to ensure Prisma user on mypage:", {
+      message: getSafeErrorMessage(syncError),
+    });
   }
 
   const sp = searchParams ? await searchParams : undefined;
@@ -146,7 +152,9 @@ export default async function MyPage({
       try {
         await syncStripeConnectAccountStatus(user.id, existingUser.stripeAccountId);
       } catch (syncError) {
-        console.error("Failed to sync Stripe Connect status on mypage:", syncError);
+        console.error("Failed to sync Stripe Connect status on mypage:", {
+          message: getSafeErrorMessage(syncError),
+        });
       }
     }
   }

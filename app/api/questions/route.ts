@@ -26,6 +26,10 @@ const MAX_LIMIT = 50;
 const PUBLIC_QUESTION_LIST_CACHE_CONTROL =
   "public, s-maxage=30, stale-while-revalidate=300";
 
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown_error";
+}
+
 function parsePositiveInt(value: string | null, fallback: number) {
   const parsed = Number(value);
 
@@ -210,7 +214,9 @@ export async function GET(req: Request) {
       }
     );
   } catch (error) {
-    console.error("❌ GET /api/questions Error:", error);
+    console.error("❌ GET /api/questions Error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
   }
 }
@@ -371,7 +377,9 @@ export async function POST(req: Request) {
           });
 
         if (uploadError) {
-          console.error("画像アップロード失敗:", uploadError);
+          console.error("画像アップロード失敗:", {
+            message: getSafeErrorMessage(uploadError),
+          });
           return null;
         }
 
@@ -428,7 +436,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: newQuestion.id });
   } catch (error) {
-    console.error("❌ POST /api/questions Error:", error);
+    console.error("❌ POST /api/questions Error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "投稿に失敗しました" },
       { status: 500 }

@@ -6,6 +6,10 @@ import { sendLoginNotificationEmail } from "@/lib/notifications";
 import { supabaseServer } from "@/lib/supabase-server";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown_error";
+}
+
 export async function GET(request: Request) {
   const totalStart = nowMs();
   const url = new URL(request.url);
@@ -66,7 +70,9 @@ export async function GET(request: Request) {
         userId: user.id,
         email: user.email,
       }).catch((error) => {
-        console.error("Login notification email failed after callback:", error);
+        console.error("Login notification email failed after callback:", {
+          message: getSafeErrorMessage(error),
+        });
       });
     }
   }

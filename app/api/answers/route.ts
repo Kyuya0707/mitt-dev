@@ -34,6 +34,10 @@ function buildStoragePublicUrl(bucket: string, filePath: string) {
   return `${baseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`;
 }
 
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown_error";
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await supabaseServer();
@@ -175,12 +179,8 @@ export async function POST(req: Request) {
 
         if (uploadError) {
           console.error("[answers][image-upload] upload failed", {
-            answerId: answer.id,
-            bucket,
-            filePath,
             contentType,
-            fileName: file.name,
-            error: uploadError,
+            message: getSafeErrorMessage(uploadError),
           });
           continue;
         }
@@ -195,10 +195,8 @@ export async function POST(req: Request) {
 
       if (!uploadedBucket || !publicUrl) {
         console.error("[answers][image-upload] all buckets failed", {
-          answerId: answer.id,
-          filePath,
-          fileName: file.name,
-          triedBuckets: ANSWER_IMAGE_BUCKET_CANDIDATES,
+          contentType,
+          message: "all_candidate_uploads_failed",
         });
         continue;
       }
@@ -251,7 +249,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: answer.id });
   } catch (error) {
-    console.error("❌ POST /api/answers Error:", error);
+    console.error("❌ POST /api/answers Error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json({ error: "回答の投稿に失敗しました" }, { status: 500 });
   }
 }

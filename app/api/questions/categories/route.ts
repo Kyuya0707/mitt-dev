@@ -5,6 +5,10 @@ import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 export const revalidate = 3600;
 
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown_error";
+}
+
 export async function GET() {
   const totalStart = nowMs();
   try {
@@ -28,7 +32,9 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("❌ Category API Error:", error);
+    console.error("❌ Category API Error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }

@@ -21,6 +21,24 @@ function getErrorCode(error: unknown) {
     : null;
 }
 
+function logWebhookIssue(input: {
+  eventType: string;
+  kind?: string;
+  reason?: string | null;
+  paymentStatus?: string | null;
+  message?: string | null;
+  code?: string | null;
+}) {
+  console.error("Stripe webhook issue", {
+    eventType: input.eventType,
+    kind: input.kind ?? null,
+    reason: input.reason ?? null,
+    paymentStatus: input.paymentStatus ?? null,
+    message: input.message ?? null,
+    code: input.code ?? null,
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const sig = req.headers.get("stripe-signature");
@@ -56,8 +74,11 @@ export async function POST(req: Request) {
     try {
       event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
     } catch (err: unknown) {
-      console.error("Stripe webhook signature verify error", {
+      logWebhookIssue({
+        eventType: "webhook.signature_verification",
+        reason: "signature_verification_failed",
         message: getErrorMessage(err),
+        code: getErrorCode(err),
       });
       return new NextResponse(`Webhook Error: ${getErrorMessage(err)}`, {
         status: 400,
@@ -117,10 +138,10 @@ export async function POST(req: Request) {
             });
           }
 
-          console.error("best_view verification failed", {
-            sessionId,
+          logWebhookIssue({
+            eventType: event.type,
+            kind,
             paymentStatus,
-            metadata: session.metadata ?? null,
             reason: result.reason,
           });
           return new NextResponse(null, { status: 200 });
@@ -151,34 +172,38 @@ export async function POST(req: Request) {
 
           if (!result.ok) {
             if (result.reason === "missing_question_id") {
-              console.error("question_post metadata is missing required fields", {
-                sessionId,
-                metadata: session.metadata ?? null,
+              logWebhookIssue({
+                eventType: event.type,
+                kind,
+                reason: result.reason,
               });
               return new NextResponse(null, { status: 200 });
             }
 
-            console.error("question_post verification failed", {
-              sessionId,
-              metadata: session.metadata ?? null,
+            logWebhookIssue({
+              eventType: event.type,
+              kind,
               reason: result.reason,
             });
             return new NextResponse(null, { status: 200 });
           }
 
           if (!result.isPaid) {
-            console.error("question_post payment_status is not paid", {
-              sessionId,
-              questionId: result.questionId,
+            logWebhookIssue({
+              eventType: event.type,
+              kind,
               paymentStatus: paymentStatus ?? null,
+              reason: "payment_not_paid",
             });
             return new NextResponse(null, { status: 200 });
           }
 
         } catch (error: unknown) {
-          console.error("Question update failed", {
-            sessionId,
-            error: getErrorMessage(error),
+          logWebhookIssue({
+            eventType: event.type,
+            kind,
+            reason: "question_update_failed",
+            message: getErrorMessage(error),
             code: getErrorCode(error),
           });
           throw error;
@@ -192,16 +217,17 @@ export async function POST(req: Request) {
 
         if (!result.ok) {
           if (result.reason === "missing_metadata") {
-            console.error("negotiation_accept metadata is missing required fields", {
-              sessionId,
-              metadata: session.metadata ?? null,
+            logWebhookIssue({
+              eventType: event.type,
+              kind,
+              reason: result.reason,
             });
             return new NextResponse(null, { status: 200 });
           }
 
-          console.error("negotiation_accept verification failed", {
-            sessionId,
-            metadata: session.metadata ?? null,
+          logWebhookIssue({
+            eventType: event.type,
+            kind,
             reason: result.reason,
           });
           return new NextResponse(null, { status: 200 });
@@ -218,7 +244,12 @@ export async function POST(req: Request) {
 
     return new NextResponse(null, { status: 200 });
   } catch (e: unknown) {
-    console.error("❌ /api/stripe/webhook error:", e);
+    logWebhookIssue({
+      eventType: "webhook.unhandled_error",
+      reason: "unhandled_error",
+      message: getErrorMessage(e),
+      code: getErrorCode(e),
+    });
     return new NextResponse("Webhook handler error", { status: 500 });
   }
 }

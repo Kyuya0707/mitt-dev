@@ -127,7 +127,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (e: unknown) {
-    console.error("❌ /api/checkout/question error:", e);
+    console.error("❌ /api/checkout/question error:", {
+      message: getErrorMessage(e),
+    });
     return NextResponse.json(
       { error: getErrorMessage(e) },
       { status: 500 }

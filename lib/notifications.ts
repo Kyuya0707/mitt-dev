@@ -40,6 +40,10 @@ type SafeCreateNotificationInput = CreateNotificationInput & {
   context?: string;
 };
 
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown_error";
+}
+
 type EmailPreferenceKey =
   | "emailOnAnswerCreated"
   | "emailOnCommentCreated"
@@ -209,14 +213,13 @@ async function sendNotificationEmail(params: {
     }),
   });
 
-  const responseText = await response.text().catch(() => "");
+  await response.text().catch(() => "");
 
   if (!response.ok) {
     console.error("[notifications][email] resend error", {
       status: response.status,
-      body: responseText,
     });
-    throw new Error(`Resend API error: ${response.status} ${responseText}`);
+    throw new Error(`Resend API error: ${response.status}`);
   }
 }
 
@@ -302,14 +305,13 @@ async function sendLoginEmail(params: { to: string; loggedInAt: Date }) {
     }),
   });
 
-  const responseText = await response.text().catch(() => "");
+  await response.text().catch(() => "");
 
   if (!response.ok) {
     console.error("[notifications][login-email] resend error", {
       status: response.status,
-      body: responseText,
     });
-    throw new Error(`Resend API error: ${response.status} ${responseText}`);
+    throw new Error(`Resend API error: ${response.status}`);
   }
 }
 
@@ -364,7 +366,10 @@ export async function createUserNotification({
       url,
     });
   } catch (error) {
-    console.error("Notification email failed:", error);
+    console.error("Notification email failed:", {
+      type,
+      message: getSafeErrorMessage(error),
+    });
   }
 
   return notification;
@@ -378,11 +383,8 @@ export async function safeCreateUserNotification(
   } catch (error) {
     console.error("Notification create failed:", {
       context: input.context ?? null,
-      userId: input.userId,
-      actorUserId: input.actorUserId ?? null,
       type: input.type,
-      data: input.data ?? null,
-      error,
+      message: getSafeErrorMessage(error),
     });
     return null;
   }
@@ -440,7 +442,9 @@ export async function sendLoginNotificationEmail(input: {
 
     return true;
   } catch (error) {
-    console.error("Login notification email failed:", error);
+    console.error("Login notification email failed:", {
+      message: getSafeErrorMessage(error),
+    });
     return false;
   }
 }

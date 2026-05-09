@@ -13,6 +13,10 @@ type AdminPayoutNotificationInput = {
   adminPath: "/admin/payouts" | "/admin/best-view-payouts";
 };
 
+function getSafeErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown_error";
+}
+
 function getAdminNotificationEmails() {
   return (process.env.ADMIN_PAYOUT_NOTIFICATION_EMAIL ?? "")
     .split(",")
@@ -131,15 +135,16 @@ export async function sendAdminPayoutNotification(
       }),
     });
 
-    const responseText = await response.text().catch(() => "");
+    await response.text().catch(() => "");
 
     if (!response.ok) {
       console.error("[admin-notifications] resend error", {
         status: response.status,
-        body: responseText,
       });
     }
   } catch (error) {
-    console.error("Admin payout notification failed:", error);
+    console.error("Admin payout notification failed:", {
+      message: getSafeErrorMessage(error),
+    });
   }
 }
