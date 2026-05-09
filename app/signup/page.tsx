@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { CATEGORY_NAMES } from "@/lib/category-options";
@@ -183,7 +182,6 @@ support@knowvalue.jp
 `;
 
 export default function SignupPage() {
-  const router = useRouter();
   const supabase = createClientBrowser();
   const initialDraft = useMemo(() => getInitialSignupDraft(), []);
 
@@ -209,6 +207,9 @@ export default function SignupPage() {
   const [legalAgreed, setLegalAgreed] = useState(initialDraft.legalAgreed);
   const [loading, setLoading] = useState(false);
   const [signupCompletedEmail, setSignupCompletedEmail] = useState("");
+  const [signupPhase, setSignupPhase] = useState<
+    "idle" | "username" | "avatar" | "signup"
+  >("idle");
 
   const signupDraft = useMemo(
     () => ({
@@ -270,17 +271,20 @@ export default function SignupPage() {
     }
     setErrorMsg("");
     setLoading(true);
+    setSignupPhase("username");
 
     const usernameValidation = validateUsername(username);
     if (!usernameValidation.ok) {
       setErrorMsg(usernameValidation.message);
       setLoading(false);
+      setSignupPhase("idle");
       return;
     }
     
     if (!legalAgreed) {
       setErrorMsg("利用規約とプライバシーポリシーへの同意が必要です。");
       setLoading(false);
+      setSignupPhase("idle");
       return;
     }
 
@@ -288,6 +292,7 @@ export default function SignupPage() {
     if (!ppAgreed) {
       setErrorMsg("副業・税務に関する同意が必要です。");
       setLoading(false);
+      setSignupPhase("idle");
       return;
     }
 
@@ -302,12 +307,14 @@ export default function SignupPage() {
     if (!usernameCheckRes.ok) {
       setErrorMsg(usernameCheckData.error || "ユーザー名の確認に失敗しました。");
       setLoading(false);
+      setSignupPhase("idle");
       return;
     }
 
     if (!usernameCheckData.available) {
       setErrorMsg("このユーザー名はすでに使用されています。");
       setLoading(false);
+      setSignupPhase("idle");
       return;
     }
 
@@ -315,6 +322,7 @@ export default function SignupPage() {
     let avatarUrl: string | null = null;
 
     if (avatarFile) {
+      setSignupPhase("avatar");
       const fileName = `${Date.now()}_${avatarFile.name}`;
 
       const { error: uploadError } = await supabase.storage
@@ -324,6 +332,7 @@ export default function SignupPage() {
       if (uploadError) {
         setErrorMsg("画像アップロードに失敗しました");
         setLoading(false);
+        setSignupPhase("idle");
         return;
       }
 
@@ -335,6 +344,7 @@ export default function SignupPage() {
     }
 
     // 2) サインアップ（確認メール）
+    setSignupPhase("signup");
     const fullName = `${lastName} ${firstName}`;
     const redirectBase =
       process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
@@ -361,6 +371,7 @@ export default function SignupPage() {
     if (signUpError) {
       setErrorMsg(signUpError.message);
       setLoading(false);
+      setSignupPhase("idle");
       return;
     }
 
@@ -369,6 +380,7 @@ export default function SignupPage() {
     setSignupCompletedEmail(email);
     setPassword("");
     setLoading(false);
+    setSignupPhase("idle");
   };
 
   if (signupCompletedEmail) {
@@ -393,7 +405,6 @@ export default function SignupPage() {
             type="button"
             onClick={() => {
               setSignupCompletedEmail("");
-              router.refresh();
             }}
             className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
@@ -611,6 +622,13 @@ export default function SignupPage() {
         </div>
 
         {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
+        {loading && signupPhase !== "idle" ? (
+          <p className="text-sm text-gray-600">
+            {signupPhase === "username" && "ユーザー名を確認中..."}
+            {signupPhase === "avatar" && "画像をアップロード中..."}
+            {signupPhase === "signup" && "登録情報を送信中..."}
+          </p>
+        ) : null}
 
         <button
           type="submit"
@@ -619,6 +637,11 @@ export default function SignupPage() {
         >
           {loading ? "登録中..." : "登録する"}
         </button>
+        {loading ? (
+          <p className="text-xs leading-6 text-gray-500">
+            画像がある場合はアップロード完了後に確認メール送信処理へ進みます。
+          </p>
+        ) : null}
       </form>
 
       {/* ✅ PPモーダル */}

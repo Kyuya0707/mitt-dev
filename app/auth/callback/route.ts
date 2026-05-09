@@ -52,9 +52,11 @@ export async function GET(request: Request) {
     });
 
     if (code) {
-      await sendLoginNotificationEmail({
+      void sendLoginNotificationEmail({
         userId: user.id,
         email: user.email,
+      }).catch((error) => {
+        console.error("Login notification email failed after callback:", error);
       });
     }
   }
