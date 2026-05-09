@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { supabaseServer } from "@/lib/supabase-server";
 import { validateViewerPrice } from "@/lib/viewer-price";
+import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 // ================================
 // ファイル名を安全に変換（日本語・スペース禁止）
@@ -108,6 +109,7 @@ function buildQuestionExcerpt(content: string, maxLength = 120) {
 // 質問一覧（GET）
 // ================================
 export async function GET(req: Request) {
+  const totalStart = nowMs();
   try {
     const url = new URL(req.url);
     const q = url.searchParams.get("q")?.trim() ?? "";
@@ -132,37 +134,39 @@ export async function GET(req: Request) {
     });
     const orderBy = buildQuestionListOrderBy(sort);
 
-    const [total, rawQuestions] = await prisma.$transaction([
-      prisma.question.count({ where }),
-      prisma.question.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        select: {
-          id: true,
-          title: true,
-          content: true,
-          rewardAmount: true,
-          viewerPrice: true,
-          createdAt: true,
-          isClosed: true,
-          isPaid: true,
-          bestAnswerId: true,
-          category: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          _count: {
-            select: {
-              answers: true,
-            },
+    const countStart = nowMs();
+    const total = await prisma.question.count({ where });
+    const countDuration = durationMs(countStart);
+    const findManyStart = nowMs();
+    const rawQuestions = await prisma.question.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        rewardAmount: true,
+        viewerPrice: true,
+        createdAt: true,
+        isClosed: true,
+        isPaid: true,
+        bestAnswerId: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
           },
         },
-      }),
-    ]);
+        _count: {
+          select: {
+            answers: true,
+          },
+        },
+      },
+    });
+    const findManyDuration = durationMs(findManyStart);
 
     const items = rawQuestions.map((question) => ({
       id: question.id,
@@ -179,6 +183,16 @@ export async function GET(req: Request) {
     }));
 
     const totalPages = total === 0 ? 1 : Math.ceil(total / limit);
+
+    logPerf("questions.GET", {
+      total: `${durationMs(totalStart)}ms`,
+      count: `${countDuration}ms`,
+      findMany: `${findManyDuration}ms`,
+      items: items.length,
+      page,
+      limit,
+      sort,
+    });
 
     return NextResponse.json(
       {
@@ -205,14 +219,17 @@ export async function GET(req: Request) {
 // 質問投稿（POST）
 // ================================
 export async function POST(req: Request) {
+  const totalStart = nowMs();
   try {
     // 🔹 Supabase（Server）クライアントを生成
     const supabase = await supabaseServer();
 
     // --- 認証ユーザー確認 ---
+    const authStart = nowMs();
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    const authDuration = durationMs(authStart);
 
     if (!user) {
       return NextResponse.json(
@@ -222,6 +239,7 @@ export async function POST(req: Request) {
     }
 
     // --- Prisma.User に存在するか確認 ---
+    const userCheckStart = nowMs();
     let prismaUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: {
@@ -245,6 +263,7 @@ export async function POST(req: Request) {
         },
       });
     }
+    const userCheckDuration = durationMs(userCheckStart);
 
     if (!prismaUser.ppConsentAt && !prismaUser.consentAt) {
       return NextResponse.json(
@@ -296,9 +315,11 @@ export async function POST(req: Request) {
     }
 
     // --- カテゴリ存在チェック（IDで検索） ---
+    const categoryCheckStart = nowMs();
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
     });
+    const categoryCheckDuration = durationMs(categoryCheckStart);
 
     if (!category) {
       return NextResponse.json(
@@ -310,6 +331,7 @@ export async function POST(req: Request) {
     // ---------------------------
     // 1. 質問を保存
     // ---------------------------
+    const questionCreateStart = nowMs();
     const newQuestion = await prisma.question.create({
       data: {
         title,
@@ -320,11 +342,13 @@ export async function POST(req: Request) {
         viewerPrice: viewerPriceValidation.value,
       },
     });
+    const questionCreateDuration = durationMs(questionCreateStart);
 
     // ---------------------------
     // 2. 画像アップロード
     // ---------------------------
     const images = formData.getAll("images") as File[];
+    const uploadStart = nowMs();
     const uploadedImages = await Promise.all(
       images.map(async (file, index) => {
         if (!(file instanceof File) || file.size === 0) {
@@ -362,6 +386,7 @@ export async function POST(req: Request) {
         };
       })
     );
+    const uploadDuration = durationMs(uploadStart);
 
     const successfulImages = uploadedImages.filter(
       (
@@ -374,8 +399,30 @@ export async function POST(req: Request) {
     );
 
     if (successfulImages.length > 0) {
+      const imageDbStart = nowMs();
       await prisma.questionImage.createMany({
         data: successfulImages,
+      });
+      logPerf("questions.POST", {
+        total: `${durationMs(totalStart)}ms`,
+        auth: `${authDuration}ms`,
+        user: `${userCheckDuration}ms`,
+        category: `${categoryCheckDuration}ms`,
+        create: `${questionCreateDuration}ms`,
+        upload: `${uploadDuration}ms`,
+        imageDb: `${durationMs(imageDbStart)}ms`,
+        images: successfulImages.length,
+      });
+    } else {
+      logPerf("questions.POST", {
+        total: `${durationMs(totalStart)}ms`,
+        auth: `${authDuration}ms`,
+        user: `${userCheckDuration}ms`,
+        category: `${categoryCheckDuration}ms`,
+        create: `${questionCreateDuration}ms`,
+        upload: `${uploadDuration}ms`,
+        imageDb: "0ms",
+        images: 0,
       });
     }
 

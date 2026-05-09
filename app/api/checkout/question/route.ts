@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import { getBaseUrl } from "@/lib/site-url";
+import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 export const runtime = "nodejs"; // Stripe/Prismaなので明示（Edge回避）
 
@@ -22,8 +23,11 @@ function getErrorMessage(error: unknown) {
 }
 
 export async function POST(req: Request) {
+  const totalStart = nowMs();
   try {
+    const authStart = nowMs();
     const currentUser = await getCurrentUser();
+    const authDuration = durationMs(authStart);
 
     if (!currentUser) {
       return NextResponse.json(
@@ -45,10 +49,12 @@ export async function POST(req: Request) {
     const baseUrl = getBaseUrl();
 
     // ✅ DBから rewardAmount を取得（改ざん防止）
+    const questionLookupStart = nowMs();
     const q = await prisma.question.findUnique({
       where: { id: questionId },
       select: { id: true, rewardAmount: true, userId: true, isPaid: true },
     });
+    const questionLookupDuration = durationMs(questionLookupStart);
 
     if (!q) {
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
@@ -79,6 +85,7 @@ export async function POST(req: Request) {
 
     const stripe = getStripe();
 
+    const stripeSessionStart = nowMs();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -107,6 +114,15 @@ export async function POST(req: Request) {
       },
       success_url: `${baseUrl}/questions/${questionId}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/questions/${questionId}?cancel=1`,
+    });
+    const stripeSessionDuration = durationMs(stripeSessionStart);
+
+    logPerf("checkout.question.POST", {
+      total: `${durationMs(totalStart)}ms`,
+      auth: `${authDuration}ms`,
+      question: `${questionLookupDuration}ms`,
+      stripe: `${stripeSessionDuration}ms`,
+      amount,
     });
 
     return NextResponse.json({ url: session.url });

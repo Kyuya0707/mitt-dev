@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sortCategoryNames } from "@/lib/category-options";
+import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 export const revalidate = 3600;
 
 export async function GET() {
+  const totalStart = nowMs();
   try {
     const categories = sortCategoryNames(
       await prisma.category.findMany({
@@ -14,6 +16,11 @@ export async function GET() {
         },
       })
     );
+
+    logPerf("questions.categories.GET", {
+      total: `${durationMs(totalStart)}ms`,
+      count: categories.length,
+    });
 
     return NextResponse.json(categories, {
       headers: {

@@ -9,6 +9,7 @@ import LogoutButton from "./LogoutButton";
 import { syncStripeConnectAccountStatus } from "@/lib/stripe-connect";
 import ReferralLinkButton from "@/app/components/ReferralLinkButton";
 import MyPageCard from "./MyPageCard";
+import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 function getDisplayName(input: {
   username?: string | null;
@@ -70,13 +71,21 @@ export default async function MyPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const totalStart = nowMs();
   const supabase = await supabaseServer();
+  const authStart = nowMs();
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser();
+  const authDuration = durationMs(authStart);
 
   if (!user) {
+    logPerf("mypage.PAGE", {
+      total: `${durationMs(totalStart)}ms`,
+      auth: `${authDuration}ms`,
+      authenticated: false,
+    });
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <p className="mb-4 text-sm text-gray-700">ログインが必要です。</p>
@@ -104,7 +113,10 @@ export default async function MyPage({
     console.error("Supabase getUser error:", error.message);
   }
 
+  let ensureDuration = 0;
+
   try {
+    const ensureStart = nowMs();
     await ensurePrismaUser({
       id: user.id,
       email: user.email,
@@ -112,6 +124,7 @@ export default async function MyPage({
       name: meta.full_name,
       interests: Array.isArray(meta.interests) ? meta.interests : [],
     });
+    ensureDuration = durationMs(ensureStart);
   } catch (syncError) {
     console.error("Failed to ensure Prisma user on mypage:", syncError);
   }
@@ -138,6 +151,7 @@ export default async function MyPage({
     }
   }
 
+  const dbUserLookupStart = nowMs();
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
@@ -185,6 +199,15 @@ export default async function MyPage({
         },
       },
     },
+  });
+  const dbUserLookupDuration = durationMs(dbUserLookupStart);
+
+  logPerf("mypage.PAGE", {
+    total: `${durationMs(totalStart)}ms`,
+    auth: `${authDuration}ms`,
+    ensure: `${ensureDuration}ms`,
+    dbUser: `${dbUserLookupDuration}ms`,
+    authenticated: true,
   });
 
   if (!dbUser) {
