@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureConnectedAccountForUser } from "@/lib/stripe-connect";
 import { getBaseUrl } from "@/lib/site-url";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,7 @@ function getStripe() {
   return new Stripe(key);
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const user = await getCurrentUser();
 
@@ -41,7 +42,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: link.url });
   } catch (error) {
-    console.error("Stripe Connect onboarding link error:", error);
+    console.error("Stripe Connect onboarding link error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "Stripe Connect オンボーディングURLの作成に失敗しました" },
       { status: 500 }

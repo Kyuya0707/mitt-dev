@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST(
   req: Request,
@@ -41,8 +42,10 @@ export async function POST(
     });
 
     return NextResponse.json({ success: true });
-  } catch (e) {
-    console.error("Notification read error:", e);
+  } catch (error) {
+    console.error("Notification read error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "予期しないエラーが発生しました" },
       { status: 500 }

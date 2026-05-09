@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { sendLoginNotificationEmail } from "@/lib/notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 function getBearerToken(req: Request) {
   const authorization = req.headers.get("authorization");
@@ -83,7 +84,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, sent });
   } catch (error) {
-    console.error("Login notification route failed:", error);
+    console.error("Login notification route failed:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "ログイン通知メールの送信に失敗しました" },
       { status: 500 }

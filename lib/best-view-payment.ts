@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { sendAdminPayoutNotification } from "@/lib/admin-notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 type VerifyBestViewCheckoutSessionResult =
   | {
@@ -251,7 +252,9 @@ export async function verifyBestViewCheckoutSession(
       return { ok: false, reason: "session_not_found" };
     }
 
-    console.error("❌ verifyBestViewCheckoutSession error:", error);
+    console.error("❌ verifyBestViewCheckoutSession error:", {
+      message: getSafeErrorMessage(error),
+    });
     return { ok: false, reason: "stripe_error" };
   }
 }

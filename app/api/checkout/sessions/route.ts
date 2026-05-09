@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/site-url";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
 
@@ -152,7 +153,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error: unknown) {
-    console.error("❌ /api/checkout/sessions error:", error);
+    console.error("❌ /api/checkout/sessions error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Stripe error" },
       { status: 500 }

@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { createCategoryQuestionNotifications } from "@/lib/notifications";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 type VerifyQuestionCheckoutSessionResult =
   | {
@@ -73,7 +74,9 @@ export async function verifyQuestionCheckoutSession(
       return { ok: false, reason: "session_not_found" };
     }
 
-    console.error("❌ verifyQuestionCheckoutSession error:", error);
+    console.error("❌ verifyQuestionCheckoutSession error:", {
+      message: getSafeErrorMessage(error),
+    });
     return { ok: false, reason: "stripe_error" };
   }
 }

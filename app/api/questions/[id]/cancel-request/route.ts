@@ -6,6 +6,7 @@ import {
   sendAdminCancellationRequestNotification,
   sendCancellationRequestReceivedEmail,
 } from "@/lib/cancellation-notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST(
   req: Request,
@@ -144,7 +145,9 @@ export async function POST(
       requestId: requestRecord.id,
     });
   } catch (error) {
-    console.error("Question cancellation request error:", error);
+    console.error("Question cancellation request error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "キャンセル申請の作成に失敗しました" },
       { status: 500 }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { validateUsername } from "@/lib/username";
+import { getSafeErrorCode, getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST(req: Request) {
   try {
@@ -60,13 +61,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const errorCode =
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      typeof err.code === "string"
-        ? err.code
-        : null;
+    const errorCode = getSafeErrorCode(err);
 
     if (errorCode === "USERNAME_TAKEN") {
       return NextResponse.json(
@@ -75,7 +70,10 @@ export async function POST(req: Request) {
       );
     }
 
-    console.error("User Sync Error:", err);
+    console.error("User Sync Error:", {
+      message: getSafeErrorMessage(err),
+      code: errorCode,
+    });
     return NextResponse.json({ error: "Failed to sync" }, { status: 500 });
   }
 }

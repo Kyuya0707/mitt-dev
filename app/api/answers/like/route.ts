@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { supabaseServer } from "@/lib/supabase-server";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST(req: Request) {
   try {
@@ -88,7 +89,9 @@ export async function POST(req: Request) {
       liked: result.liked,
     });
   } catch (e) {
-    console.error("❌ like api error", e);
+    console.error("❌ like api error", {
+      message: getSafeErrorMessage(e),
+    });
     return NextResponse.json(
       { error: "いいね処理失敗" },
       { status: 500 }

@@ -6,6 +6,7 @@ import {
   safeCreateUserNotification,
 } from "@/lib/notifications";
 import { sendAdminPayoutNotification } from "@/lib/admin-notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST(req: Request) {
   try {
@@ -171,7 +172,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("BEST設定エラー:", error);
+    console.error("BEST設定エラー:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "予期しないエラーが発生しました" },
       { status: 500 }

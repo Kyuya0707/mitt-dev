@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { supabaseServer } from "@/lib/supabase-server";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 const PP_CONSENT_VERSION = "2026-01-18_v1";
 
@@ -32,7 +33,9 @@ export async function GET() {
       isAgreed: Boolean(prismaUser?.ppConsentAt || prismaUser?.consentAt),
     });
   } catch (error) {
-    console.error("[pp-consent][api] fetch failed", error);
+    console.error("[pp-consent][api] fetch failed", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "同意状態の取得に失敗しました" },
       { status: 500 }
@@ -88,7 +91,9 @@ export async function POST(req: Request) {
       ppConsentVersion: savedUser.ppConsentVersion,
     });
   } catch (error) {
-    console.error("[pp-consent][api] save failed", error);
+    console.error("[pp-consent][api] save failed", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "同意の保存に失敗しました", redirectTo },
       { status: 500 }

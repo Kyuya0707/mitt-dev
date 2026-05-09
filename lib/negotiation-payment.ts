@@ -4,6 +4,7 @@ import {
   NOTIFICATION_TYPES,
   safeCreateUserNotification,
 } from "@/lib/notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 type VerifyNegotiationCheckoutSessionResult =
   | {
@@ -77,7 +78,9 @@ export async function verifyNegotiationCheckoutSession(
       return { ok: false, reason: "session_not_found" };
     }
 
-    console.error("❌ verifyNegotiationCheckoutSession error:", error);
+    console.error("❌ verifyNegotiationCheckoutSession error:", {
+      message: getSafeErrorMessage(error),
+    });
     return { ok: false, reason: "stripe_error" };
   }
 }

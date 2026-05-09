@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureConnectedAccountForUser } from "@/lib/stripe-connect";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,9 @@ export async function POST() {
       detailsSubmitted: result.user.stripeConnectDetailsSubmitted,
     });
   } catch (error) {
-    console.error("Stripe Connect account create error:", error);
+    console.error("Stripe Connect account create error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "Stripe Connect アカウント作成に失敗しました" },
       { status: 500 }

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 const prisma = new PrismaClient();
 
@@ -16,7 +16,9 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("Error fetching categories:", error);
+    console.error("Error fetching categories:", {
+      message: getSafeErrorMessage(error),
+    });
     return new Response(
       JSON.stringify({ error: "Failed to fetch categories" }),
       {

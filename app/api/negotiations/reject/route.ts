@@ -6,6 +6,7 @@ import {
   NOTIFICATION_TYPES,
   safeCreateUserNotification,
 } from "@/lib/notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST(req: Request) {
   try {
@@ -105,7 +106,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
-    console.error("❌ POST /api/negotiations/reject error:", e);
+    console.error("❌ POST /api/negotiations/reject error:", {
+      message: getSafeErrorMessage(e),
+    });
     return NextResponse.json(
       { error: "予期しないエラーが発生しました" },
       { status: 500 }

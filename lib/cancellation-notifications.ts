@@ -2,6 +2,7 @@ import {
   buildCommonEmailFooterHtml,
   buildCommonEmailFooterText,
 } from "@/lib/email-footer";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 import { getBaseUrl } from "@/lib/site-url";
 
 type AdminCancellationEmailInput = {
@@ -80,11 +81,13 @@ async function sendEmail(params: {
     if (!response.ok) {
       console.error("[cancellation-notifications] resend error", {
         status: response.status,
-        body: responseText,
+        message: responseText || "resend_request_failed",
       });
     }
   } catch (error) {
-    console.error("[cancellation-notifications] send failed", error);
+    console.error("[cancellation-notifications] send failed", {
+      message: getSafeErrorMessage(error),
+    });
   }
 }
 

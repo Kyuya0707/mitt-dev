@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import type { QuestionAnswer } from "@/app/(app)/questions/[id]/types";
 import { validateViewerPrice } from "@/lib/viewer-price";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function GET(
   _req: Request,
@@ -94,7 +95,9 @@ export async function GET(
       answers: answersWithLock,
     });
   } catch (error) {
-    console.error("❌ GET /questions/[id] Error:", error);
+    console.error("❌ GET /questions/[id] Error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
   }
 }
@@ -145,7 +148,9 @@ export async function PATCH(
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("❌ PATCH /questions/[id] Error:", error);
+    console.error("❌ PATCH /questions/[id] Error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
   }
 }

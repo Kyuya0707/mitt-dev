@@ -29,7 +29,12 @@ export default function LoginPage() {
             Authorization: `Bearer ${session.access_token}`,
           },
         }).catch((notificationError) => {
-          console.error("Login notification request failed:", notificationError);
+          console.error("Login notification request failed:", {
+            message:
+              notificationError instanceof Error
+                ? notificationError.message
+                : "unknown_error",
+          });
         });
       }
 

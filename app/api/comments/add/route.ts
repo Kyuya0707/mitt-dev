@@ -5,6 +5,7 @@ import {
   NOTIFICATION_TYPES,
   safeCreateUserNotification,
 } from "@/lib/notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST(req: Request) {
   try {
@@ -92,7 +93,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json(newComment);
   } catch (error) {
-    console.error("コメント追加エラー:", error);
+    console.error("コメント追加エラー:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "予期しないエラーが発生しました" },
       { status: 500 }

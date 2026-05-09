@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { getCurrentUserAdminStatus } from "@/lib/admin";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs";
 
@@ -217,7 +218,9 @@ export async function POST(
       },
     });
 
-    console.error("Payout transfer error:", error);
+    console.error("Payout transfer error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: failureReason },
       { status: 500 }

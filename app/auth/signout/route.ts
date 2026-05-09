@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -22,8 +23,10 @@ export async function POST() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch (e) {
-            console.error("setAll error:", e);
+          } catch (error) {
+            console.error("setAll error:", {
+              message: getSafeErrorMessage(error),
+            });
           }
         },
       },

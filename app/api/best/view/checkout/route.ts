@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { getBaseUrl } from "@/lib/site-url";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,9 @@ export async function POST(req: Request) {
           typeof metadata.full_name === "string" ? metadata.full_name : undefined,
       });
     } catch (error) {
-      console.error("❌ failed to ensure prisma user before best checkout:", error);
+      console.error("❌ failed to ensure prisma user before best checkout:", {
+        message: getSafeErrorMessage(error),
+      });
       return NextResponse.json(
         { error: "購入ユーザー情報の同期に失敗しました。再度ログインしてください。" },
         { status: 500 }
@@ -159,7 +162,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("❌ /api/best/view/checkout error:", error);
+    console.error("❌ /api/best/view/checkout error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: "決済セッションの作成に失敗しました" },
       { status: 500 }

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUserAdminStatus } from "@/lib/admin";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import { sendCancellationApprovedEmail } from "@/lib/cancellation-notifications";
+import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs";
 
@@ -215,7 +216,9 @@ export async function POST(
       refundedAmount: targetPurchase.amount || rewardBreakdown.checkoutAmount,
     });
   } catch (error) {
-    console.error("Cancellation approve refund error:", error);
+    console.error("Cancellation approve refund error:", {
+      message: getSafeErrorMessage(error),
+    });
     return NextResponse.json(
       { error: mapRefundErrorMessage(error) },
       { status: 500 }
