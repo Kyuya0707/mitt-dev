@@ -58,12 +58,12 @@ model User {
   trustScore Int    @default(50)
   rank       String @default("WHITE")
 
-  questions       Question[]
-  answers         Answer[]
-  purchases       Purchase[]
-  payouts         Payout[]
-  bestViewPayouts BestViewPayout[] @relation("BestViewPayoutRecipientUser")
-  cancellationRequests        CancellationRequest[] @relation("CancellationRequester")
+  questions                    Question[]
+  answers                      Answer[]
+  purchases                    Purchase[]
+  payouts                      Payout[]
+  bestViewPayouts              BestViewPayout[]      @relation("BestViewPayoutRecipientUser")
+  cancellationRequests         CancellationRequest[] @relation("CancellationRequester")
   reviewedCancellationRequests CancellationRequest[] @relation("CancellationReviewer")
 
   readAnswers            AnswerRead[]
@@ -121,6 +121,12 @@ model Question {
   cancellationRequests CancellationRequest[]
 
   isPaid Boolean @default(false)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([categoryId, createdAt])
+  @@index([isPaid, createdAt])
+  @@index([bestAnswerId])
 }
 
 model Answer {
@@ -150,6 +156,9 @@ model Answer {
 
   reports Report[]
   payout  Payout?
+
+  @@index([questionId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model AnswerLike {
@@ -225,6 +234,8 @@ model Negotiation {
 
   questionId String
   question   Question @relation(fields: [questionId], references: [id])
+
+  @@index([questionId, status])
 }
 
 model Purchase {
@@ -247,6 +258,9 @@ model Purchase {
   status PaymentStatus @default(PAID)
 
   bestViewRevenueShare BestViewRevenueShare?
+
+  @@index([userId, createdAt])
+  @@index([userId, questionId, status])
 }
 
 model BestViewRevenueShare {
@@ -312,6 +326,9 @@ model Notification {
   readAt    DateTime?
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }
 
 model NotificationPreference {
