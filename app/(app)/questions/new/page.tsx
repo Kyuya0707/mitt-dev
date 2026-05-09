@@ -490,6 +490,8 @@ export default function NewQuestionPage() {
                         src={item.url}
                         className="w-24 h-24 object-cover rounded border"
                         alt="質問画像プレビュー"
+                        loading="lazy"
+                        decoding="async"
                       />
                       <button
                         type="button"

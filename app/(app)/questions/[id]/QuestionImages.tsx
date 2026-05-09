@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import ImageLightbox from "./ImageLightbox";
 
 export default function QuestionImages({ images }: { images: { url: string }[] }) {
@@ -10,12 +11,20 @@ export default function QuestionImages({ images }: { images: { url: string }[] }
     <>
       <div className="mt-6 grid grid-cols-3 gap-2">
         {images.map((img, i) => (
-          <img
+          <button
             key={i}
-            src={img.url}
+            type="button"
             onClick={() => setIndex(i)}
-            className="w-full aspect-square object-cover rounded border cursor-pointer hover:opacity-80 transition"
-          />
+            className="relative aspect-square w-full overflow-hidden rounded border transition hover:opacity-80"
+          >
+            <Image
+              src={img.url}
+              alt={`質問画像 ${i + 1}`}
+              fill
+              sizes="(max-width: 640px) 31vw, 180px"
+              className="object-cover"
+            />
+          </button>
         ))}
       </div>
 

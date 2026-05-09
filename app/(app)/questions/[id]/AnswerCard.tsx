@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import ImageLightbox from "./ImageLightbox";
 import { StarIcon } from "@heroicons/react/24/solid";
@@ -284,13 +285,20 @@ export default function AnswerCard({
       {images.length > 0 && (
         <div className="mt-4 grid grid-cols-3 gap-2">
           {images.map((img, index) => (
-            <img
+            <button
               key={img.id}
-              src={img.url}
+              type="button"
               onClick={() => setLightboxIndex(index)}
-              className="w-full aspect-square object-cover rounded cursor-pointer hover:opacity-80 transition border"
-              alt={`answer image ${index + 1}`}
-            />
+              className="relative aspect-square w-full overflow-hidden rounded border transition hover:opacity-80"
+            >
+              <Image
+                src={img.url}
+                alt={`回答画像 ${index + 1}`}
+                fill
+                sizes="(max-width: 640px) 31vw, 180px"
+                className="object-cover"
+              />
+            </button>
           ))}
         </div>
       )}
