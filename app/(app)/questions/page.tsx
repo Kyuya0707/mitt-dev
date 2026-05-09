@@ -8,14 +8,17 @@ type QuestionListItem = {
   id: string;
   title: string;
   content: string;
-  createdAt: string;
+  createdAt: string | Date;
   rewardAmount: number;
+  viewerPrice: number | null;
   isPaid: boolean;
-  bestAnswerId?: string | null;
-  category?: {
-    name?: string | null;
+  isClosed: boolean;
+  bestAnswerId: string | null;
+  category: {
+    id: string;
+    name: string;
   } | null;
-  answers?: Array<unknown>;
+  answerCount: number;
 };
 
 function highlight(text: string, keyword: string) {
@@ -77,34 +80,175 @@ export default function QuestionsPage() {
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [query, setQuery] = useState(initialParams?.get("q") || "");
   const [selectedCategory, setSelectedCategory] = useState(
-    initialParams?.get("category") || ""
+    initialParams?.get("categoryId") || initialParams?.get("category") || ""
   );
-  const [sort, setSort] = useState(initialParams?.get("sort") || "new");
+  const [sort, setSort] = useState(initialParams?.get("sort") || "latest");
   const [excludeBestSelected, setExcludeBestSelected] = useState(
     initialParams?.get("excludeBest") === "1"
   );
   const [popularTags, setPopularTags] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [searchHistory, setSearchHistory] = useState<string[]>(
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("search-history") || "[]")
       : []
   );
 
-  // 📌 APIから質問・カテゴリーを取得
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetch(`/api/questions`);
-        const data = await res.json();
+  const syncUrl = (paramsInput: {
+    nextPage: number;
+    nextQuery: string;
+    nextCategoryId: string;
+    nextSort: string;
+    nextExcludeBestSelected: boolean;
+  }) => {
+    const params = new URLSearchParams();
+    if (paramsInput.nextQuery) params.set("q", paramsInput.nextQuery);
+    if (paramsInput.nextCategoryId) {
+      params.set("categoryId", paramsInput.nextCategoryId);
+    }
+    if (paramsInput.nextSort !== "latest") params.set("sort", paramsInput.nextSort);
+    if (paramsInput.nextExcludeBestSelected) params.set("excludeBest", "1");
+    if (paramsInput.nextPage > 1) params.set("page", String(paramsInput.nextPage));
 
-        setQuestions(data.questions || []);
-        setCategories(data.categories || []);
-        setPopularTags(extractPopularTags(data.questions || []));
+    const nextUrl = params.toString()
+      ? `/questions?${params.toString()}`
+      : "/questions";
+
+    window.history.replaceState({}, "", nextUrl);
+  };
+
+  const fetchQuestions = async ({
+    nextPage = 1,
+    append = false,
+    nextQuery = query,
+    nextCategoryId = selectedCategory,
+    nextSort = sort,
+    nextExcludeBestSelected = excludeBestSelected,
+  }: {
+    nextPage?: number;
+    append?: boolean;
+    nextQuery?: string;
+    nextCategoryId?: string;
+    nextSort?: string;
+    nextExcludeBestSelected?: boolean;
+  }) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setErrorMsg("");
+    }
+
+    try {
+      const params = new URLSearchParams();
+      params.set("page", String(nextPage));
+      params.set("limit", String(limit));
+
+      if (nextQuery) params.set("q", nextQuery);
+      if (nextCategoryId) params.set("categoryId", nextCategoryId);
+      if (nextSort) params.set("sort", nextSort);
+      if (nextExcludeBestSelected) params.set("excludeBest", "true");
+
+      const res = await fetch(`/api/questions?${params.toString()}`);
+      const data = (await res.json()) as {
+        items?: QuestionListItem[];
+        total?: number;
+        hasNextPage?: boolean;
+        page?: number;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(data.error || "質問一覧の取得に失敗しました");
+      }
+
+      const items = data.items || [];
+      const mergedItems = append ? [...questions, ...items] : items;
+
+      setQuestions(mergedItems);
+      setPopularTags(extractPopularTags(mergedItems));
+      const resolvedPage = data.page || nextPage;
+      setTotal(data.total || 0);
+      setHasNextPage(Boolean(data.hasNextPage));
+      setPage(resolvedPage);
+      syncUrl({
+        nextPage: resolvedPage,
+        nextQuery,
+        nextCategoryId,
+        nextSort,
+        nextExcludeBestSelected,
+      });
+    } catch (err) {
+      console.error("データ取得に失敗:", err);
+      setErrorMsg("質問一覧の取得に失敗しました。");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      setErrorMsg("");
+
+      try {
+        const [questionsRes, categoriesRes] = await Promise.all([
+          fetch("/api/questions?page=1&limit=20"),
+          fetch("/api/questions/categories", { cache: "force-cache" }),
+        ]);
+
+        const questionsData = (await questionsRes.json()) as {
+          items?: QuestionListItem[];
+          total?: number;
+          hasNextPage?: boolean;
+          page?: number;
+          error?: string;
+        };
+        const categoriesData = (await categoriesRes.json()) as
+          | Array<{ id: string; name: string }>
+          | { error?: string };
+
+        if (!questionsRes.ok) {
+          throw new Error(questionsData.error || "質問一覧の取得に失敗しました");
+        }
+
+        if (!categoriesRes.ok || !Array.isArray(categoriesData)) {
+          throw new Error("カテゴリー一覧の取得に失敗しました");
+        }
+
+        const items = questionsData.items || [];
+        const resolvedPage = questionsData.page || 1;
+
+        setQuestions(items);
+        setCategories(categoriesData);
+        setPopularTags(extractPopularTags(items));
+        setTotal(questionsData.total || 0);
+        setHasNextPage(Boolean(questionsData.hasNextPage));
+        setPage(resolvedPage);
+        syncUrl({
+          nextPage: resolvedPage,
+          nextQuery: query,
+          nextCategoryId: selectedCategory,
+          nextSort: sort,
+          nextExcludeBestSelected: excludeBestSelected,
+        });
       } catch (err) {
         console.error("データ取得に失敗:", err);
+        setErrorMsg("質問一覧の取得に失敗しました。");
+      } finally {
+        setLoading(false);
       }
-    }
-    fetchData();
+    };
+
+    void loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 📌 検索履歴
@@ -124,31 +268,17 @@ export default function QuestionsPage() {
     setSearchHistory([]);
   };
 
-  // 📌 クライアント側でフィルタリング＆ソート
-  const filteredQuestions = questions
-    .filter((q) => (query ? q.title.includes(query) || q.content.includes(query) : true))
-    .filter((q) => (selectedCategory ? q.category?.name === selectedCategory : true))
-    .filter((q) => (excludeBestSelected ? !q.bestAnswerId : true))
-    .sort((a, b) => {
-      if (sort === "new")
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (sort === "reward") return b.rewardAmount - a.rewardAmount;
-      if (sort === "answers") return (b.answers?.length ?? 0) - (a.answers?.length ?? 0);
-      return 0;
-    });
-
   // 📌 検索フォーム送信
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     saveSearchHistory(query);
-
-    const params = new URLSearchParams();
-    if (query) params.append("q", query);
-    if (selectedCategory) params.append("category", selectedCategory);
-    if (sort !== "new") params.append("sort", sort);
-    if (excludeBestSelected) params.append("excludeBest", "1");
-
-    window.location.href = `/questions?${params.toString()}`;
+    void fetchQuestions({
+      nextPage: 1,
+      nextQuery: query,
+      nextCategoryId: selectedCategory,
+      nextSort: sort,
+      nextExcludeBestSelected: excludeBestSelected,
+    });
   };
 
   return (
@@ -217,14 +347,14 @@ export default function QuestionsPage() {
         >
           <option value="">すべてのカテゴリー</option>
           {categories.map((cat) => (
-            <option key={cat.id} value={cat.name}>
+            <option key={cat.id} value={cat.id}>
               {cat.name}
             </option>
           ))}
         </select>
 
         <select value={sort} onChange={(e) => setSort(e.target.value)} className="border rounded px-3 py-2">
-          <option value="new">新着順</option>
+          <option value="latest">新着順</option>
           <option value="reward">報酬額が高い順</option>
           <option value="answers">回答数が多い順</option>
         </select>
@@ -247,9 +377,15 @@ export default function QuestionsPage() {
           onClick={() => {
             setQuery("");
             setSelectedCategory("");
-            setSort("new");
+            setSort("latest");
             setExcludeBestSelected(false);
-            window.location.href = "/questions";
+            void fetchQuestions({
+              nextPage: 1,
+              nextQuery: "",
+              nextCategoryId: "",
+              nextSort: "latest",
+              nextExcludeBestSelected: false,
+            });
           }}
           className="text-gray-600 underline px-2 py-2 text-sm hover:text-gray-800"
         >
@@ -268,9 +404,13 @@ export default function QuestionsPage() {
 
       {/* 💬 質問一覧 */}
       <div className="space-y-4">
-        {filteredQuestions.length === 0 && <p className="text-gray-500">質問がまだありません。</p>}
+        {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
+        {loading && <p className="text-gray-500">読み込み中...</p>}
+        {!loading && questions.length === 0 && (
+          <p className="text-gray-500">質問がまだありません。</p>
+        )}
 
-        {filteredQuestions.map((q) => (
+        {questions.map((q) => (
           <Link
             key={q.id}
             href={`/questions/${q.id}`}
@@ -299,12 +439,35 @@ export default function QuestionsPage() {
 
             <p className="mt-2 text-sm text-gray-700 line-clamp-2">
               {q.isPaid
-                ? q.content.slice(0, 100)
+                ? q.content
                 : "この質問は質問者の決済完了後に公開されます。"}
+            </p>
+            <p className="mt-2 text-xs text-gray-500">
+              回答数: {q.answerCount}件
             </p>
           </Link>
         ))}
       </div>
+
+      {!loading && questions.length > 0 && (
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <p className="text-sm text-gray-500">
+            {questions.length} / {total} 件を表示中
+          </p>
+          {hasNextPage && (
+            <button
+              type="button"
+              onClick={() => {
+                void fetchQuestions({ nextPage: page + 1, append: true });
+              }}
+              disabled={loadingMore}
+              className="rounded bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {loadingMore ? "読み込み中..." : "もっと見る"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

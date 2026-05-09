@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { supabaseServer } from "@/lib/supabase-server";
-import { sortCategoryNames } from "@/lib/category-options";
 import { validateViewerPrice } from "@/lib/viewer-price";
 
 // ================================
@@ -23,6 +22,8 @@ function safeFileName(originalName: string) {
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
+const PUBLIC_QUESTION_LIST_CACHE_CONTROL =
+  "public, s-maxage=30, stale-while-revalidate=300";
 
 function parsePositiveInt(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -131,7 +132,7 @@ export async function GET(req: Request) {
     });
     const orderBy = buildQuestionListOrderBy(sort);
 
-    const [total, rawQuestions, rawCategories] = await prisma.$transaction([
+    const [total, rawQuestions] = await prisma.$transaction([
       prisma.question.count({ where }),
       prisma.question.findMany({
         where,
@@ -148,7 +149,6 @@ export async function GET(req: Request) {
           isClosed: true,
           isPaid: true,
           bestAnswerId: true,
-          userId: true,
           category: {
             select: {
               id: true,
@@ -160,12 +160,6 @@ export async function GET(req: Request) {
               answers: true,
             },
           },
-        },
-      }),
-      prisma.category.findMany({
-        select: {
-          id: true,
-          name: true,
         },
       }),
     ]);
@@ -180,23 +174,27 @@ export async function GET(req: Request) {
       isClosed: question.isClosed,
       isPaid: question.isPaid,
       bestAnswerId: question.bestAnswerId,
-      userId: question.userId,
       category: question.category,
       answerCount: question._count.answers,
     }));
 
     const totalPages = total === 0 ? 1 : Math.ceil(total / limit);
-    const categories = sortCategoryNames(rawCategories);
 
-    return NextResponse.json({
-      items,
-      categories,
-      page,
-      limit,
-      total,
-      totalPages,
-      hasNextPage: page < totalPages,
-    });
+    return NextResponse.json(
+      {
+        items,
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+      },
+      {
+        headers: {
+          "Cache-Control": PUBLIC_QUESTION_LIST_CACHE_CONTROL,
+        },
+      }
+    );
   } catch (error) {
     console.error("❌ GET /api/questions Error:", error);
     return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });

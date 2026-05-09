@@ -57,7 +57,7 @@ export default function NewQuestionPage() {
       setUser(data.user);
     });
 
-    fetch("/api/questions/categories")
+    fetch("/api/questions/categories", { cache: "force-cache" })
       .then((res) => res.json())
       .then((data) => {
         setCategories(data);
