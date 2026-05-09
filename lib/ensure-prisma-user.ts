@@ -16,6 +16,26 @@ type EnsurePrismaUserInput = {
   ppConsentVersion?: string | null;
 };
 
+function areStringArraysEqual(a: string[], b: string[]) {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return a.every((value, index) => value === b[index]);
+}
+
+function areDatesEqual(a?: Date | null, b?: Date | null) {
+  if (!a && !b) {
+    return true;
+  }
+
+  if (!a || !b) {
+    return false;
+  }
+
+  return a.getTime() === b.getTime();
+}
+
 function buildTaggedError(code: string, message: string) {
   const error = new Error(message) as Error & { code: string };
   error.code = code;
@@ -184,50 +204,6 @@ export async function ensurePrismaUser({
   const normalizedInterests = Array.isArray(interests)
     ? interests.filter((item): item is string => typeof item === "string")
     : [];
-  const resolvedUsername = await resolveUsername({
-    id,
-    email: normalizedEmail,
-    username,
-    name: normalizedName,
-  });
-
-  if (normalizedEmail.length > 0) {
-    const savedUser = await prisma.user.upsert({
-      where: { id },
-      update: {
-        email: normalizedEmail,
-        username: resolvedUsername,
-        interestCategories: normalizedInterests,
-        ...(normalizedName ? { name: normalizedName } : {}),
-        ...(ppConsentAt ? { ppConsentAt } : {}),
-        ...(ppConsentVersion ? { ppConsentVersion } : {}),
-      },
-      create: {
-        id,
-        email: normalizedEmail,
-        username: resolvedUsername,
-        interestCategories: normalizedInterests,
-        ...(normalizedName ? { name: normalizedName } : {}),
-        ...(ppConsentAt ? { ppConsentAt } : {}),
-        ...(ppConsentVersion ? { ppConsentVersion } : {}),
-      },
-      select: {
-        id: true,
-        displayId: true,
-        email: true,
-        username: true,
-        name: true,
-      },
-    });
-
-    if (!savedUser.displayId) {
-      const displayId = await assignDisplayId(savedUser.id);
-      savedUser.displayId = displayId;
-    }
-
-    await ensureNotificationPreference(id);
-    return savedUser;
-  }
 
   const existingUser = await prisma.user.findUnique({
     where: { id },
@@ -238,28 +214,96 @@ export async function ensurePrismaUser({
       username: true,
       name: true,
       interestCategories: true,
+      ppConsentAt: true,
+      ppConsentVersion: true,
+      notificationPreference: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
-  if (!existingUser) {
-    throw new Error("Prisma user sync failed: email is required for new user");
-  }
+  if (existingUser) {
+    const requestedUsername =
+      typeof username === "string" && username.trim().length > 0
+        ? username.trim()
+        : null;
+    const shouldResolveUsername =
+      requestedUsername !== null
+        ? requestedUsername !== existingUser.username
+        : !existingUser.username;
+    const emailChanged =
+      normalizedEmail.length > 0 && existingUser.email !== normalizedEmail;
+    const nameChanged = Boolean(
+      normalizedName && existingUser.name !== normalizedName
+    );
+    const interestsChanged = !areStringArraysEqual(
+      existingUser.interestCategories ?? [],
+      normalizedInterests
+    );
+    const consentChanged = Boolean(
+      ppConsentAt && !areDatesEqual(existingUser.ppConsentAt, ppConsentAt)
+    );
+    const consentVersionChanged = Boolean(
+      ppConsentVersion && existingUser.ppConsentVersion !== ppConsentVersion
+    );
+    const needsUpdate =
+      shouldResolveUsername ||
+      emailChanged ||
+      nameChanged ||
+      interestsChanged ||
+      consentChanged ||
+      consentVersionChanged;
 
-  if (
-    existingUser.username !== resolvedUsername ||
-    (normalizedName && existingUser.name !== normalizedName) ||
-    JSON.stringify(existingUser.interestCategories ?? []) !==
-      JSON.stringify(normalizedInterests)
-  ) {
-      const savedUser = await prisma.user.update({
+    if (
+      !needsUpdate &&
+      existingUser.displayId &&
+      existingUser.notificationPreference
+    ) {
+      return {
+        id: existingUser.id,
+        displayId: existingUser.displayId,
+        email: existingUser.email,
+        username: existingUser.username,
+        name: existingUser.name,
+      };
+    }
+
+    let nextUsername = existingUser.username;
+
+    if (shouldResolveUsername) {
+      nextUsername = await resolveUsername({
+        id,
+        email: normalizedEmail || existingUser.email,
+        username,
+        name: normalizedName || existingUser.name,
+      });
+    }
+
+    let savedUser = {
+      id: existingUser.id,
+      displayId: existingUser.displayId,
+      email: existingUser.email,
+      username: nextUsername,
+      name: existingUser.name,
+    };
+
+    if (needsUpdate) {
+      savedUser = await prisma.user.update({
         where: { id },
         data: {
-          username: resolvedUsername,
-        interestCategories: normalizedInterests,
-        ...(normalizedName ? { name: normalizedName } : {}),
-        ...(ppConsentAt ? { ppConsentAt } : {}),
-        ...(ppConsentVersion ? { ppConsentVersion } : {}),
-      },
+          ...(emailChanged ? { email: normalizedEmail } : {}),
+          ...(nextUsername !== existingUser.username
+            ? { username: nextUsername }
+            : {}),
+          ...(interestsChanged
+            ? { interestCategories: normalizedInterests }
+            : {}),
+          ...(nameChanged ? { name: normalizedName } : {}),
+          ...(consentChanged ? { ppConsentAt } : {}),
+          ...(consentVersionChanged ? { ppConsentVersion } : {}),
+        },
         select: {
           id: true,
           displayId: true,
@@ -268,20 +312,54 @@ export async function ensurePrismaUser({
           name: true,
         },
       });
-
-      if (!savedUser.displayId) {
-        const displayId = await assignDisplayId(savedUser.id);
-        savedUser.displayId = displayId;
-      }
-
-      await ensureNotificationPreference(id);
-      return savedUser;
     }
 
-  if (!existingUser.displayId) {
-    existingUser.displayId = await assignDisplayId(existingUser.id);
+    if (!savedUser.displayId) {
+      savedUser.displayId = await assignDisplayId(savedUser.id);
+    }
+
+    if (!existingUser.notificationPreference) {
+      await ensureNotificationPreference(id);
+    }
+
+    return savedUser;
+  }
+
+  if (normalizedEmail.length === 0) {
+    throw new Error("Prisma user sync failed: email is required for new user");
+  }
+
+  const resolvedUsername = await resolveUsername({
+    id,
+    email: normalizedEmail,
+    username,
+    name: normalizedName,
+  });
+
+  const createdUser = await prisma.user.create({
+    data: {
+      id,
+      email: normalizedEmail,
+      username: resolvedUsername,
+      interestCategories: normalizedInterests,
+      ...(normalizedName ? { name: normalizedName } : {}),
+      ...(ppConsentAt ? { ppConsentAt } : {}),
+      ...(ppConsentVersion ? { ppConsentVersion } : {}),
+    },
+    select: {
+      id: true,
+      displayId: true,
+      email: true,
+      username: true,
+      name: true,
+    },
+  });
+
+  if (!createdUser.displayId) {
+    createdUser.displayId = await assignDisplayId(createdUser.id);
   }
 
   await ensureNotificationPreference(id);
-  return existingUser;
+
+  return createdUser;
 }

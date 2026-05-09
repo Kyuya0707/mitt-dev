@@ -140,16 +140,49 @@ export default async function MyPage({
 
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
-    include: {
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      name: true,
+      displayId: true,
+      ppConsentAt: true,
+      interestCategories: true,
+      stripeAccountId: true,
+      stripeConnectOnboardingCompleted: true,
+      stripeConnectChargesEnabled: true,
+      stripeConnectPayoutsEnabled: true,
+      stripeConnectDetailsSubmitted: true,
+      stripeConnectDisabledReason: true,
+      stripeConnectRequirementsCurrentlyDue: true,
       questions: {
         orderBy: { createdAt: "desc" },
         take: 3,
-        include: { category: true },
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          category: {
+            select: {
+              name: true,
+            },
+          },
+        },
       },
       answers: {
         orderBy: { createdAt: "desc" },
         take: 3,
-        include: { question: true },
+        select: {
+          id: true,
+          questionId: true,
+          createdAt: true,
+          question: {
+            select: {
+              title: true,
+              bestAnswerId: true,
+            },
+          },
+        },
       },
     },
   });
