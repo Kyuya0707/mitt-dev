@@ -27,10 +27,6 @@ export async function POST() {
 
     return NextResponse.json({
       accountId: result.account.id,
-      onboardingCompleted: result.user.stripeConnectOnboardingCompleted,
-      chargesEnabled: result.user.stripeConnectChargesEnabled,
-      payoutsEnabled: result.user.stripeConnectPayoutsEnabled,
-      detailsSubmitted: result.user.stripeConnectDetailsSubmitted,
     });
   } catch (error) {
     console.error("Stripe Connect account create error:", {

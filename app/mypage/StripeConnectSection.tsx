@@ -6,9 +6,6 @@ import MyPageCard from "./MyPageCard";
 type StripeConnectSectionProps = {
   stripeAccountId: string | null;
   onboardingCompleted: boolean;
-  chargesEnabled: boolean;
-  payoutsEnabled: boolean;
-  detailsSubmitted: boolean;
   disabledReason: string | null;
   currentlyDueCount: number;
   connectStatusParam?: string | null;
@@ -24,26 +21,26 @@ function getStatusLabel(props: StripeConnectSectionProps) {
   }
 
   if (props.disabledReason || props.currentlyDueCount > 0) {
-    return "要対応";
+    return "確認中";
   }
 
-  return "設定途中";
+  return "確認中";
 }
 
 function getStatusDescription(props: StripeConnectSectionProps) {
   if (!props.stripeAccountId) {
-    return "報酬を受け取るには、受取口座の登録が必要です。Stripe Connect で受取設定を開始してください。";
+    return "報酬を受け取るには設定が必要です。Stripeで本人確認・口座登録を行ってください。";
   }
 
   if (props.onboardingCompleted) {
-    return "受取設定は完了しています。";
+    return "報酬受取設定が完了しています。";
   }
 
   if (props.disabledReason || props.currentlyDueCount > 0) {
-    return "追加の確認項目があります。BEST回答報酬やBEST閲覧料の分配を受け取るため、受取設定を続けてください。";
+    return "本人確認を確認中です。Stripe設定を完了してください。";
   }
 
-  return "BEST回答報酬やBEST閲覧料の分配を受け取るため、Stripe 側の受取設定を完了してください。";
+  return "本人確認を確認中です。Stripe設定を完了してください。";
 }
 
 export default function StripeConnectSection(
@@ -83,7 +80,7 @@ export default function StripeConnectSection(
   return (
     <MyPageCard
       title="報酬受取設定"
-      description="報酬を受け取るには、受取口座の登録が必要です。BEST回答に選ばれた報酬やBEST閲覧料の分配を受け取るため、Stripe Connectで受取設定を行ってください。"
+      description="報酬を受け取るには設定が必要です。Stripeで本人確認・口座登録を行ってください。"
     >
       {props.connectStatusParam === "return" && (
         <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
@@ -105,25 +102,11 @@ export default function StripeConnectSection(
       </div>
       <p className="mb-4 text-sm text-gray-600">{description}</p>
 
-      {props.stripeAccountId && (
-        <div className="mb-4 grid gap-2 sm:grid-cols-3">
-          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            details_submitted: {props.detailsSubmitted ? "true" : "false"}
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            payouts_enabled: {props.payoutsEnabled ? "true" : "false"}
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            charges_enabled: {props.chargesEnabled ? "true" : "false"}
-          </div>
-        </div>
-      )}
-
       {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
 
       {props.onboardingCompleted ? (
         <p className="text-sm font-medium text-green-700">
-          受取設定は完了しています。
+          報酬受取設定が完了しています。
         </p>
       ) : (
         <button
@@ -133,10 +116,10 @@ export default function StripeConnectSection(
           className="rounded-xl bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
         >
           {loading
-            ? "Stripeへ移動中..."
+            ? "Stripe設定へ移動中..."
             : props.stripeAccountId
-              ? "受取設定を続ける"
-              : "受取設定をする"}
+              ? "Stripe設定を続ける"
+              : "Stripe設定をする"}
         </button>
       )}
     </MyPageCard>

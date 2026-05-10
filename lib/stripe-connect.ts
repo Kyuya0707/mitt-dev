@@ -6,6 +6,14 @@ type StripeLikeUser = {
   email?: string | null;
 };
 
+const CONNECT_BUSINESS_PROFILE = {
+  url: "https://knowvalue.jp",
+  product_description: "オンラインQ&Aプラットフォームでの回答報酬受取",
+  // KnowValue はオンライン Q&A/知識共有型のサービスのため、
+  // Stripe の MCC は教育・情報提供に近い 8299 を採用する。
+  mcc: "8299",
+} as const;
+
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
 
@@ -14,6 +22,17 @@ function getStripe() {
   }
 
   return new Stripe(key);
+}
+
+async function prefillConnectedAccount(
+  stripe: Stripe,
+  accountId: string,
+  options: { includeBusinessType: boolean }
+) {
+  await stripe.accounts.update(accountId, {
+    ...(options.includeBusinessType ? { business_type: "individual" } : {}),
+    business_profile: CONNECT_BUSINESS_PROFILE,
+  });
 }
 
 export function mapStripeAccountToUserUpdate(account: Stripe.Account) {
@@ -85,6 +104,15 @@ export async function ensureConnectedAccountForUser(user: StripeLikeUser) {
   }
 
   if (existingUser.stripeAccountId) {
+    try {
+      await prefillConnectedAccount(getStripe(), existingUser.stripeAccountId, {
+        includeBusinessType: true,
+      });
+    } catch {
+      // 既存の Express アカウントでは、オンボーディング状況次第で更新できない項目がある。
+      // 失敗しても既存の payout / onboarding フローは継続させる。
+    }
+
     return syncStripeConnectAccountStatus(user.id, existingUser.stripeAccountId);
   }
 
@@ -92,6 +120,8 @@ export async function ensureConnectedAccountForUser(user: StripeLikeUser) {
   const account = await stripe.accounts.create({
     type: "express",
     country: "JP",
+    business_type: "individual",
+    business_profile: CONNECT_BUSINESS_PROFILE,
     ...(user.email ? { email: user.email } : {}),
   });
 

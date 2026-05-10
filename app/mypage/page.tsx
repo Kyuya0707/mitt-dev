@@ -178,9 +178,6 @@ export default async function MyPage({
       interestCategories: true,
       stripeAccountId: true,
       stripeConnectOnboardingCompleted: true,
-      stripeConnectChargesEnabled: true,
-      stripeConnectPayoutsEnabled: true,
-      stripeConnectDetailsSubmitted: true,
       stripeConnectDisabledReason: true,
       stripeConnectRequirementsCurrentlyDue: true,
       questions: {
@@ -465,9 +462,6 @@ export default async function MyPage({
           <StripeConnectSection
             stripeAccountId={dbUser.stripeAccountId}
             onboardingCompleted={dbUser.stripeConnectOnboardingCompleted}
-            chargesEnabled={dbUser.stripeConnectChargesEnabled}
-            payoutsEnabled={dbUser.stripeConnectPayoutsEnabled}
-            detailsSubmitted={dbUser.stripeConnectDetailsSubmitted}
             disabledReason={dbUser.stripeConnectDisabledReason}
             currentlyDueCount={
               Array.isArray(dbUser.stripeConnectRequirementsCurrentlyDue)
