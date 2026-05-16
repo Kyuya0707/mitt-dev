@@ -154,7 +154,7 @@ export default async function MyPageRewardsPage() {
       typeLabel:
         payout.recipientType === "question_owner"
           ? "BEST閲覧料（質問者分）"
-          : "BEST閲覧料（回答者分）",
+          : "BEST閲覧料（旧仕様）",
       amount: payout.amount,
       status: payout.status,
       createdAt: payout.createdAt,
@@ -177,10 +177,10 @@ export default async function MyPageRewardsPage() {
   return (
     <div className="mx-auto max-w-5xl p-6 text-black">
       <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
+      <div>
           <h1 className="text-3xl font-bold">報酬確認</h1>
           <p className="mt-2 text-sm text-gray-600">
-            質問報酬とBEST閲覧料分配の受取状況を確認できます。
+            質問報酬とBEST閲覧料の受取状況を確認できます。
           </p>
         </div>
         <Link href="/mypage" className="text-sm text-blue-600 underline">

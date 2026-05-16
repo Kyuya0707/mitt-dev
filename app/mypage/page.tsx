@@ -473,7 +473,7 @@ export default async function MyPage({
 
           <MyPageCard
             title="報酬確認"
-            description="質問報酬とBEST閲覧料分配の受取状況を確認できます。"
+            description="質問報酬とBEST閲覧料の受取状況を確認できます。"
           >
             <Link
               href="/mypage/rewards"

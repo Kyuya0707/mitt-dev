@@ -44,7 +44,7 @@ function escapeHtml(value: string) {
 }
 
 function getPayoutTypeLabel(type: AdminPayoutNotificationInput["payoutType"]) {
-  return type === "question_reward" ? "質問報酬" : "BEST閲覧料分配";
+  return type === "question_reward" ? "質問報酬" : "BEST閲覧料（質問者分）";
 }
 
 function buildAdminPayoutEmailContent(input: AdminPayoutNotificationInput) {

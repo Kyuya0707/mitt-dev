@@ -78,18 +78,14 @@ async function ensureBestViewRevenueShare(params: {
       questionId: params.questionId,
       answerId: params.answerId,
       questionOwnerId: existing.questionOwnerId,
-      answerOwnerId: existing.answerOwnerId,
       questionOwnerAmount: existing.questionOwnerAmount,
-      answerOwnerAmount: existing.answerOwnerAmount,
       currency: existing.currency,
     });
     return existing;
   }
 
-  const questionOwnerAmount = Math.floor(params.grossAmount * 0.5);
-  const answerOwnerAmount = Math.floor(params.grossAmount * 0.2);
-  const platformFeeAmount =
-    params.grossAmount - questionOwnerAmount - answerOwnerAmount;
+  const questionOwnerAmount = Math.floor(params.grossAmount * 0.7);
+  const platformFeeAmount = params.grossAmount - questionOwnerAmount;
 
   const revenueShare = await prisma.bestViewRevenueShare.create({
     data: {
@@ -101,7 +97,7 @@ async function ensureBestViewRevenueShare(params: {
       answerOwnerId: params.answerOwnerId,
       grossAmount: params.grossAmount,
       questionOwnerAmount,
-      answerOwnerAmount,
+      answerOwnerAmount: 0,
       platformFeeAmount,
       currency: params.currency,
       status: "pending",
@@ -121,9 +117,7 @@ async function ensureBestViewRevenueShare(params: {
     questionId: params.questionId,
     answerId: params.answerId,
     questionOwnerId: revenueShare.questionOwnerId,
-    answerOwnerId: revenueShare.answerOwnerId,
     questionOwnerAmount: revenueShare.questionOwnerAmount,
-    answerOwnerAmount: revenueShare.answerOwnerAmount,
     currency: revenueShare.currency,
   });
 
@@ -135,9 +129,7 @@ async function ensureBestViewPayouts(params: {
   questionId: string;
   answerId: string;
   questionOwnerId: string;
-  answerOwnerId: string;
   questionOwnerAmount: number;
-  answerOwnerAmount: number;
   currency: string;
 }) {
   const existingQuestionOwnerPayout = await prisma.bestViewPayout.findUnique({
@@ -157,48 +149,6 @@ async function ensureBestViewPayouts(params: {
         recipientUserId: params.questionOwnerId,
         recipientType: "question_owner",
         amount: params.questionOwnerAmount,
-        currency: params.currency,
-        status: "pending",
-      },
-      select: {
-        amount: true,
-        recipientUser: {
-          select: {
-            username: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    await sendAdminPayoutNotification({
-      payoutType: "best_view",
-      amount: createdPayout.amount,
-      recipientName: createdPayout.recipientUser.username,
-      recipientEmail: createdPayout.recipientUser.email,
-      questionId: params.questionId,
-      answerId: params.answerId,
-      adminPath: "/admin/best-view-payouts",
-    });
-  }
-
-  const existingAnswerOwnerPayout = await prisma.bestViewPayout.findUnique({
-    where: {
-      revenueShareId_recipientType: {
-        revenueShareId: params.revenueShareId,
-        recipientType: "answer_owner",
-      },
-    },
-    select: { id: true },
-  });
-
-  if (!existingAnswerOwnerPayout) {
-    const createdPayout = await prisma.bestViewPayout.create({
-      data: {
-        revenueShareId: params.revenueShareId,
-        recipientUserId: params.answerOwnerId,
-        recipientType: "answer_owner",
-        amount: params.answerOwnerAmount,
         currency: params.currency,
         status: "pending",
       },

@@ -470,7 +470,7 @@ export default function WelcomePage() {
                     BEST回答は有料で公開できます。
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">
-                    閲覧料金は質問者・回答者へ分配されます。価値ある実体験が、
+                    閲覧料金は質問者へ還元されます。良い質問そのものが、
                     一度きりではなく継続的に評価される仕組みです。
                   </p>
                 </div>
@@ -479,7 +479,7 @@ export default function WelcomePage() {
                     質問者へ還元
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    回答者へ還元
+                    良い質問の継続評価
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     KnowValue運営維持

@@ -60,7 +60,7 @@ function getRecipientTypeLabel(recipientType: string) {
     case "question_owner":
       return "質問者";
     case "answer_owner":
-      return "回答者";
+      return "旧仕様の回答者分";
     default:
       return recipientType;
   }
@@ -253,10 +253,6 @@ export default function BestViewPayoutsTable() {
                   <p>
                     <span className="font-semibold">質問者分:</span>{" "}
                     {formatYen(payout.revenueShare.questionOwnerAmount)}
-                  </p>
-                  <p>
-                    <span className="font-semibold">回答者分:</span>{" "}
-                    {formatYen(payout.revenueShare.answerOwnerAmount)}
                   </p>
                   <p>
                     <span className="font-semibold">手数料:</span>{" "}

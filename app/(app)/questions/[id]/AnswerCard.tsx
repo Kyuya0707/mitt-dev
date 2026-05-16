@@ -354,7 +354,7 @@ export default function AnswerCard({
               このBEST回答は有料公開されています
             </div>
             <p className="mt-1 text-xs leading-relaxed text-yellow-900/80">
-              閲覧料金は質問者への還元、回答者への還元、KnowValue運営維持のために分配されます。
+              閲覧料金は質問者への還元とKnowValue運営維持のために分配されます。
             </p>
           </div>
           <p className="mb-3">このBEST回答はロックされています。閲覧には購入が必要です。</p>
@@ -393,17 +393,11 @@ export default function AnswerCard({
                 に同意したものとみなします。
               </p>
               {viewerPrice && viewerPrice > 0 && (
-                <div className="mt-3 grid gap-2 rounded-lg border border-yellow-100 bg-white p-3 text-xs text-gray-600 sm:grid-cols-3">
+                <div className="mt-3 grid gap-2 rounded-lg border border-yellow-100 bg-white p-3 text-xs text-gray-600 sm:grid-cols-2">
                   <div>
                     <div className="text-gray-500">質問者への報酬</div>
                     <div className="font-semibold text-gray-900">
                       {bestViewBreakdown.questionOwnerAmount.toLocaleString("ja-JP")}円
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500">回答者への報酬</div>
-                    <div className="font-semibold text-gray-900">
-                      {bestViewBreakdown.answerOwnerAmount.toLocaleString("ja-JP")}円
                     </div>
                   </div>
                   <div>

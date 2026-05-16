@@ -433,20 +433,14 @@ export default function NewQuestionPage() {
               {viewerPrice > 0 && (
                 <div className="mt-3 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-gray-700">
                   <p className="mb-3 text-gray-700">
-                    BEST回答は有料公開できます。閲覧料金は質問者・回答者へ分配されます。
+                    BEST回答は有料公開できます。閲覧料金は質問者へ還元されます。
                   </p>
                   <div className="font-semibold text-gray-900">BEST閲覧料の分配</div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <div className="rounded-lg bg-white px-3 py-2">
                       <div className="text-xs text-gray-500">質問者への報酬</div>
                       <div className="font-semibold text-gray-900">
                         {formatYen(bestViewBreakdown.questionOwnerAmount)}円
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-white px-3 py-2">
-                      <div className="text-xs text-gray-500">回答者への報酬</div>
-                      <div className="font-semibold text-gray-900">
-                        {formatYen(bestViewBreakdown.answerOwnerAmount)}円
                       </div>
                     </div>
                     <div className="rounded-lg bg-white px-3 py-2">

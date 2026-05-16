@@ -457,7 +457,7 @@ export default async function Page({
           </div>
         </div>
         <p className="mt-3 text-xs leading-6 text-gray-600">
-          この質問では、表示報酬額のうち10%がプラットフォーム手数料となり、残りがBEST回答者へ支払われます。
+          この質問では、表示報酬額のうち10%がプラットフォーム手数料となり、残りが質問者へ還元されます。
         </p>
       </div>
       <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
@@ -478,17 +478,11 @@ export default async function Page({
       {question.viewerPrice && question.viewerPrice > 0 && (
         <div className="mt-2 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-gray-700">
           <div className="font-semibold text-gray-900">BEST閲覧料の分配</div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg bg-white px-3 py-2">
               <div className="text-xs text-gray-500">質問者への報酬</div>
               <div className="font-semibold text-gray-900">
                 {bestViewBreakdown.questionOwnerAmount.toLocaleString("ja-JP")}円
-              </div>
-            </div>
-            <div className="rounded-lg bg-white px-3 py-2">
-              <div className="text-xs text-gray-500">回答者への報酬</div>
-              <div className="font-semibold text-gray-900">
-                {bestViewBreakdown.answerOwnerAmount.toLocaleString("ja-JP")}円
               </div>
             </div>
             <div className="rounded-lg bg-white px-3 py-2">
@@ -499,7 +493,7 @@ export default async function Page({
             </div>
           </div>
           <p className="mt-3 text-xs leading-6 text-gray-600">
-            このBEST回答は有料公開できます。閲覧料金は質問者と回答者へ還元され、価値ある実体験が継続的に評価されます。
+            このBEST回答は有料公開できます。閲覧料金は質問者へ還元され、価値ある質問そのものが継続的に評価されます。
           </p>
         </div>
       )}
