@@ -14,6 +14,7 @@ import QuestionImages from "./QuestionImages";
 import QuestionReadClient from "./QuestionReadClient";
 import QuestionInteractionClient from "./QuestionInteractionClient";
 import QuestionPostedConversionTracker from "./QuestionPostedConversionTracker";
+import PurchaseConversionTracker from "./PurchaseConversionTracker";
 import QuestionRepurchaseButton from "./QuestionRepurchaseButton";
 import ViewerPriceEditor from "./ViewerPriceEditor";
 import CancellationRequestCard from "./CancellationRequestCard";
@@ -228,6 +229,17 @@ export default async function Page({
 
   const rewardBreakdown = getQuestionRewardBreakdown(question.rewardAmount);
   const bestViewBreakdown = getBestViewRevenueBreakdown(question.viewerPrice ?? 0);
+  const acceptedNegotiationAnswer = question.answers.find(
+    (answer) => answer.negotiation?.status === "ACCEPTED"
+  );
+  const negotiationPurchaseAmount =
+    acceptedNegotiationAnswer?.negotiation?.proposedAmount !== undefined
+      ? Math.max(
+          0,
+          acceptedNegotiationAnswer.negotiation.proposedAmount -
+            question.rewardAmount
+        )
+      : null;
 
   const showQuestionPaymentSuccess =
     !!questionPaymentVerification?.ok && questionPaymentVerification.isPaid;
@@ -334,6 +346,24 @@ export default async function Page({
         shouldTrack={showQuestionPaymentSuccess}
         sessionId={checkoutSessionId}
       />
+      <PurchaseConversionTracker
+        shouldTrack={showQuestionPaymentSuccess}
+        purchaseType="question_post"
+        sessionId={checkoutSessionId}
+        fallbackAmount={rewardBreakdown.checkoutAmount}
+      />
+      <PurchaseConversionTracker
+        shouldTrack={showBestViewPaymentSuccess}
+        purchaseType="best_view"
+        sessionId={checkoutSessionId}
+        fallbackAmount={question.viewerPrice ?? null}
+      />
+      <PurchaseConversionTracker
+        shouldTrack={showNegotiationPaymentSuccess}
+        purchaseType="negotiation_accept"
+        sessionId={checkoutSessionId}
+        fallbackAmount={negotiationPurchaseAmount}
+      />
 
       {/* 🔔 通知経由 */}
       <QuestionReadClient
@@ -394,7 +424,10 @@ export default async function Page({
           <p className="text-sm text-blue-900 mb-3">
             この質問はまだ公開されていません。決済を完了すると公開されます。
           </p>
-          <QuestionRepurchaseButton questionId={question.id} />
+          <QuestionRepurchaseButton
+            questionId={question.id}
+            checkoutAmount={rewardBreakdown.checkoutAmount}
+          />
         </div>
       )}
 

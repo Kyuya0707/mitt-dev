@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClientBrowser } from "@/lib/supabase-browser";
+import { trackGA4SignUp } from "@/lib/ga";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -18,6 +19,7 @@ export default function SignupPage() {
     if (error) {
       setMessage("登録に失敗しました: " + error.message);
     } else {
+      trackGA4SignUp();
       setMessage("確認メールを送信しました！");
     }
   };

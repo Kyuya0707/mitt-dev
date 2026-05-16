@@ -11,6 +11,10 @@ import type { AnswerComment, QuestionAnswer } from "./types";
 import { getPublicUserDisplayName } from "@/lib/public-user-display";
 import { toJapaneseErrorMessage } from "@/lib/errors";
 import { getBestViewRevenueBreakdown } from "@/lib/best-view-breakdown";
+import {
+  trackGA4BeginCheckout,
+  trackGA4BestSelected,
+} from "@/lib/ga";
 
 type AnswerCardProps = {
   ans: QuestionAnswer;
@@ -107,8 +111,12 @@ export default function AnswerCard({
         success?: boolean;
         error?: string;
       };
-      if (data.success) window.location.reload();
-      else alert(toJapaneseErrorMessage(data, "BEST設定に失敗しました"));
+      if (data.success) {
+        trackGA4BestSelected();
+        window.location.reload();
+      } else {
+        alert(toJapaneseErrorMessage(data, "BEST設定に失敗しました"));
+      }
     } catch (error) {
       alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
     }
@@ -217,6 +225,10 @@ export default function AnswerCard({
         return;
       }
 
+      trackGA4BeginCheckout({
+        checkoutType: "negotiation_accept",
+        amount: chargedAmount,
+      });
       window.location.href = data.url;
     } catch (error) {
       alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));
@@ -254,6 +266,10 @@ export default function AnswerCard({
         return;
       }
 
+      trackGA4BeginCheckout({
+        checkoutType: "best_view",
+        amount: viewerPrice,
+      });
       window.location.href = data.url;
     } catch (error) {
       alert(toJapaneseErrorMessage(error, "通信エラーが発生しました"));

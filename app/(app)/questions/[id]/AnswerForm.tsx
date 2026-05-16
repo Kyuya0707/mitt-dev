@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ReactSortable } from "react-sortablejs";
+import { trackGA4AnswerPosted } from "@/lib/ga";
 
 export default function AnswerForm({
   questionId,
@@ -170,6 +171,7 @@ export default function AnswerForm({
       return;
     }
 
+    trackGA4AnswerPosted();
     window.location.reload();
   };
 

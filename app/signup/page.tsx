@@ -10,6 +10,7 @@ import {
   GENDER_OPTIONS,
 } from "@/lib/profile-demographics";
 import { validateUsername } from "@/lib/username";
+import { trackGA4SignUp } from "@/lib/ga";
 
 const INTEREST_OPTIONS = [...CATEGORY_NAMES];
 
@@ -396,6 +397,7 @@ export default function SignupPage() {
     }
 
     void signUpData;
+    trackGA4SignUp();
     window.sessionStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY);
     setSignupCompletedEmail(email);
     setPassword("");

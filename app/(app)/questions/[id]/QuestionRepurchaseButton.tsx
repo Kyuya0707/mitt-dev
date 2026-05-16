@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { trackGA4BeginCheckout } from "@/lib/ga";
 
 type QuestionRepurchaseButtonProps = {
   questionId: string;
+  checkoutAmount?: number | null;
 };
 
 export default function QuestionRepurchaseButton({
   questionId,
+  checkoutAmount,
 }: QuestionRepurchaseButtonProps) {
   const [loading, setLoading] = useState(false);
 
@@ -37,6 +40,10 @@ export default function QuestionRepurchaseButton({
         return;
       }
 
+      trackGA4BeginCheckout({
+        checkoutType: "question_post",
+        amount: checkoutAmount,
+      });
       window.location.href = data.url;
     } catch {
       alert("通信エラーが発生しました");

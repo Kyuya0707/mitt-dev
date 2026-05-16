@@ -9,6 +9,7 @@ import { getBestViewRevenueBreakdown } from "@/lib/best-view-breakdown";
 import { MAX_VIEWER_PRICE_JPY } from "@/lib/viewer-price";
 import { toJapaneseErrorMessage } from "@/lib/errors";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
+import { trackGA4BeginCheckout } from "@/lib/ga";
 import type { User } from "@supabase/supabase-js";
 import PpConsentSection from "@/app/mypage/PpConsentSection";
 
@@ -206,6 +207,10 @@ export default function NewQuestionPage() {
       const checkoutData = await checkoutRes.json();
 
       if (checkoutRes.ok && checkoutData.url) {
+        trackGA4BeginCheckout({
+          checkoutType: "question_post",
+          amount: rewardBreakdown.checkoutAmount,
+        });
         // ③ Stripe へ遷移
         window.location.href = checkoutData.url;
         return;
