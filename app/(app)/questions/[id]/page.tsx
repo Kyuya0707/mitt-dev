@@ -13,6 +13,7 @@ import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import QuestionImages from "./QuestionImages";
 import QuestionReadClient from "./QuestionReadClient";
 import QuestionInteractionClient from "./QuestionInteractionClient";
+import QuestionPostedConversionTracker from "./QuestionPostedConversionTracker";
 import QuestionRepurchaseButton from "./QuestionRepurchaseButton";
 import ViewerPriceEditor from "./ViewerPriceEditor";
 import CancellationRequestCard from "./CancellationRequestCard";
@@ -329,6 +330,11 @@ export default async function Page({
 
   return (
     <div className="max-w-3xl mx-auto p-6 text-black">
+      <QuestionPostedConversionTracker
+        shouldTrack={showQuestionPaymentSuccess}
+        sessionId={checkoutSessionId}
+      />
+
       {/* 🔔 通知経由 */}
       <QuestionReadClient
         questionId={id}
