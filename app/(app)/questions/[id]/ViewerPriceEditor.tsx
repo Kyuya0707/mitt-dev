@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { MAX_VIEWER_PRICE_JPY } from "@/lib/viewer-price";
 
 type ViewerPriceEditorProps = {
@@ -12,6 +13,7 @@ export default function ViewerPriceEditor({
   questionId,
   initialViewerPrice,
 }: ViewerPriceEditorProps) {
+  const router = useRouter();
   const [viewerPrice, setViewerPrice] = useState<number>(initialViewerPrice ?? 0);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -22,6 +24,12 @@ export default function ViewerPriceEditor({
     setSaving(true);
     setMessage(null);
     setError(null);
+
+    if (!Number.isFinite(viewerPrice) || !Number.isInteger(viewerPrice) || viewerPrice < 1) {
+      setError("BEST閲覧価格は1円以上の整数で入力してください");
+      setSaving(false);
+      return;
+    }
 
     try {
       const res = await fetch(`/api/questions/${questionId}`, {
@@ -42,7 +50,7 @@ export default function ViewerPriceEditor({
 
       setViewerPrice(data.viewerPrice ?? viewerPrice);
       setMessage("BEST閲覧価格を更新しました");
-      window.location.reload();
+      router.refresh();
     } catch {
       setError("通信エラーが発生しました");
     } finally {
