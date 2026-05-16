@@ -179,6 +179,21 @@ function FaqItem({
   );
 }
 
+function InfoCard({
+  title,
+  desc,
+}: {
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+      <div className="text-base font-bold text-white">{title}</div>
+      <p className="mt-2 text-sm leading-relaxed text-white/70">{desc}</p>
+    </div>
+  );
+}
+
 type FaqEntry = {
   q: string;
   a: string;
@@ -505,6 +520,76 @@ export default function WelcomePage() {
                 desc="「知りたい」側は迷わず質問し、「答える」側は価値を提示できる。両者が納得して前に進めるUXを作ります。"
                 delay={0.19}
               />
+            </div>
+
+            <div className="mt-12">
+              <SectionTitle
+                title="KnowValueとは"
+                subtitle="サービス内容を、ひと目で伝わるように整理しています。"
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <InfoCard
+                  title="実体験・知識・経験を共有するQ&A"
+                  desc="KnowValue は、実体験・知識・経験を共有するQ&Aプラットフォームです。ユーザーは質問を投稿し、他ユーザーが経験や知見をもとに回答します。"
+                />
+                <InfoCard
+                  title="BEST回答は有料コンテンツ"
+                  desc="質問者は回答の中から BEST回答 を選択でき、BEST回答は有料コンテンツとして公開されます。閲覧料金は質問者70%、KnowValue運営30%で分配されます。"
+                />
+                <InfoCard
+                  title="報酬受取はStripe Connect"
+                  desc="報酬の受取には、Stripe Connect を利用した本人確認・口座登録が必要です。KnowValue は銀行口座などの金融情報を直接保持しません。"
+                />
+              </div>
+            </div>
+
+            <div className="mt-12">
+              <SectionTitle
+                title="KnowValueのお金の流れ"
+                subtitle="個人間送金ではなく、質問・回答・閲覧の流れが分かる形で設計しています。"
+              />
+
+              <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+                <div className="rounded-3xl border border-yellow-400/20 bg-black/45 p-6 sm:p-8">
+                  <div className="grid gap-4">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      1. 質問を投稿する
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      2. 回答が集まる
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      3. 質問者が BEST回答 を選ぶ
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      4. 他ユーザーが BEST回答 を有料閲覧する
+                    </div>
+                    <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-yellow-100">
+                      5. 閲覧料金の70%が質問者へ還元され、30%がKnowValue運営へ充当されます
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <div className="text-base font-bold text-white">
+                      個人間送金サービスではありません
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-white/70">
+                      KnowValue は、質問投稿・回答・BEST閲覧を通じて価値を流通させるQ&Aサービスです。閲覧料金は質問者と運営に分配され、回答者はBEST回答に選ばれた時点で質問投稿時の報酬を受け取ります。
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+                    <div className="text-base font-bold text-white">
+                      透明性のある収益構造
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-white/70">
+                      何にお金が使われるのか、誰にどのような価値が還元されるのかを分かりやすく示すことで、安心して使える体験を目指しています。
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="mt-12">
