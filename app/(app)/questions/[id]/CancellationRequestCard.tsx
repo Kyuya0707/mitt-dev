@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { toJapaneseErrorMessage } from "@/lib/errors";
+import { formatJapaneseDateTime } from "@/lib/question-deadline";
 
 type CancellationRequestCardProps = {
   questionId: string;
   canRequest: boolean;
   isOldEnough: boolean;
+  cancelAvailableAt: string | null;
+  answerDeadline: string | null;
   existingStatus: "pending" | "approved" | "rejected" | null;
   requestedAt: string | null;
   adminNote: string | null;
@@ -16,6 +19,8 @@ export default function CancellationRequestCard({
   questionId,
   canRequest,
   isOldEnough,
+  cancelAvailableAt,
+  answerDeadline,
   existingStatus,
   requestedAt,
   adminNote,
@@ -75,8 +80,10 @@ export default function CancellationRequestCard({
     <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-black">
       <div className="font-semibold text-red-900">質問のキャンセル申請</div>
       <p className="mt-2 text-sm leading-relaxed text-red-900/80">
-        質問投稿から1週間経過後、キャンセル申請ができます。申請後、運営が内容を確認し、
-        承認された場合に返金処理を行います。
+        {answerDeadline
+          ? "回答期限を過ぎると、キャンセル申請ができます。"
+          : "回答期限を設定していない場合は、投稿から2週間後にキャンセル申請ができます。"}{" "}
+        申請後、運営が内容を確認し、承認された場合に返金処理を行います。
       </p>
 
       {currentStatus === "pending" ? (
@@ -84,7 +91,7 @@ export default function CancellationRequestCard({
           キャンセル申請中です。
           {requestedAt && (
             <div className="mt-1 text-xs text-yellow-800/80">
-              申請日時: {new Date(requestedAt).toLocaleString("ja-JP")}
+              申請日時: {formatJapaneseDateTime(requestedAt)}
             </div>
           )}
         </div>
@@ -96,7 +103,9 @@ export default function CancellationRequestCard({
         <>
           {!isOldEnough && (
             <div className="mt-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700">
-              キャンセル申請は投稿から1週間経過後に可能になります。
+              {cancelAvailableAt
+                ? `キャンセル申請は ${formatJapaneseDateTime(cancelAvailableAt)} から可能になります。`
+                : "キャンセル申請可能日を確認できません。"}
             </div>
           )}
 

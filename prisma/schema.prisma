@@ -111,7 +111,8 @@ model Question {
 
   boostCount Int @default(0)
 
-  deadlineAt DateTime?
+  answerDeadline DateTime?
+  deadlineAt     DateTime?
 
   purchases Purchase[]
   payouts   Payout[]
@@ -129,6 +130,8 @@ model Question {
   @@index([categoryId, createdAt])
   @@index([isPaid, createdAt])
   @@index([bestAnswerId])
+  @@index([answerDeadline])
+  @@index([isClosed, answerDeadline])
 }
 
 model Answer {

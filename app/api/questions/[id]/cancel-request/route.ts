@@ -7,6 +7,7 @@ import {
   sendCancellationRequestReceivedEmail,
 } from "@/lib/cancellation-notifications";
 import { getSafeErrorMessage } from "@/lib/safe-error";
+import { getQuestionCancelAvailableAt } from "@/lib/question-deadline";
 
 export async function POST(
   req: Request,
@@ -32,6 +33,7 @@ export async function POST(
         userId: true,
         rewardAmount: true,
         createdAt: true,
+        answerDeadline: true,
         bestAnswerId: true,
         answers: {
           select: { id: true },
@@ -50,12 +52,18 @@ export async function POST(
       return NextResponse.json({ error: "権限がありません" }, { status: 403 });
     }
 
-    const availableAt = new Date(question.createdAt);
-    availableAt.setDate(availableAt.getDate() + 7);
+    const availableAt = getQuestionCancelAvailableAt({
+      createdAt: question.createdAt,
+      answerDeadline: question.answerDeadline,
+    });
 
     if (availableAt > new Date()) {
       return NextResponse.json(
-        { error: "キャンセル申請は投稿から1週間後に可能です" },
+        {
+          error: question.answerDeadline
+            ? "キャンセル申請は回答期限を過ぎてから可能です"
+            : "キャンセル申請は投稿から2週間後に可能です",
+        },
         { status: 403 }
       );
     }

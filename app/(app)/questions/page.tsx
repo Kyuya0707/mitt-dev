@@ -3,6 +3,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  formatJapaneseDateTime,
+  getQuestionDeadlineState,
+} from "@/lib/question-deadline";
 
 type QuestionListItem = {
   id: string;
@@ -11,6 +15,7 @@ type QuestionListItem = {
   createdAt: string | Date;
   rewardAmount: number;
   viewerPrice: number | null;
+  answerDeadline: string | Date | null;
   isPaid: boolean;
   isClosed: boolean;
   bestAnswerId: string | null;
@@ -83,6 +88,9 @@ export default function QuestionsPage() {
     initialParams?.get("categoryId") || initialParams?.get("category") || ""
   );
   const [sort, setSort] = useState(initialParams?.get("sort") || "latest");
+  const [deadlineFilter, setDeadlineFilter] = useState(
+    initialParams?.get("deadlineFilter") || "all"
+  );
   const [excludeBestSelected, setExcludeBestSelected] = useState(
     initialParams?.get("excludeBest") === "1"
   );
@@ -105,6 +113,7 @@ export default function QuestionsPage() {
     nextQuery: string;
     nextCategoryId: string;
     nextSort: string;
+    nextDeadlineFilter: string;
     nextExcludeBestSelected: boolean;
   }) => {
     const params = new URLSearchParams();
@@ -113,6 +122,9 @@ export default function QuestionsPage() {
       params.set("categoryId", paramsInput.nextCategoryId);
     }
     if (paramsInput.nextSort !== "latest") params.set("sort", paramsInput.nextSort);
+    if (paramsInput.nextDeadlineFilter !== "all") {
+      params.set("deadlineFilter", paramsInput.nextDeadlineFilter);
+    }
     if (paramsInput.nextExcludeBestSelected) params.set("excludeBest", "1");
     if (paramsInput.nextPage > 1) params.set("page", String(paramsInput.nextPage));
 
@@ -129,6 +141,7 @@ export default function QuestionsPage() {
     nextQuery = query,
     nextCategoryId = selectedCategory,
     nextSort = sort,
+    nextDeadlineFilter = deadlineFilter,
     nextExcludeBestSelected = excludeBestSelected,
   }: {
     nextPage?: number;
@@ -136,6 +149,7 @@ export default function QuestionsPage() {
     nextQuery?: string;
     nextCategoryId?: string;
     nextSort?: string;
+    nextDeadlineFilter?: string;
     nextExcludeBestSelected?: boolean;
   }) => {
     if (append) {
@@ -153,6 +167,9 @@ export default function QuestionsPage() {
       if (nextQuery) params.set("q", nextQuery);
       if (nextCategoryId) params.set("categoryId", nextCategoryId);
       if (nextSort) params.set("sort", nextSort);
+      if (nextDeadlineFilter !== "all") {
+        params.set("deadlineFilter", nextDeadlineFilter);
+      }
       if (nextExcludeBestSelected) params.set("excludeBest", "true");
 
       const res = await fetch(`/api/questions?${params.toString()}`);
@@ -182,6 +199,7 @@ export default function QuestionsPage() {
         nextQuery,
         nextCategoryId,
         nextSort,
+        nextDeadlineFilter,
         nextExcludeBestSelected,
       });
     } catch {
@@ -199,7 +217,17 @@ export default function QuestionsPage() {
 
       try {
         const [questionsRes, categoriesRes] = await Promise.all([
-          fetch("/api/questions?page=1&limit=20"),
+          fetch(
+            `/api/questions?${new URLSearchParams({
+              page: "1",
+              limit: String(limit),
+              ...(query ? { q: query } : {}),
+              ...(selectedCategory ? { categoryId: selectedCategory } : {}),
+              ...(sort ? { sort } : {}),
+              ...(deadlineFilter !== "all" ? { deadlineFilter } : {}),
+              ...(excludeBestSelected ? { excludeBest: "true" } : {}),
+            }).toString()}`
+          ),
           fetch("/api/questions/categories", { cache: "force-cache" }),
         ]);
 
@@ -236,6 +264,7 @@ export default function QuestionsPage() {
           nextQuery: query,
           nextCategoryId: selectedCategory,
           nextSort: sort,
+          nextDeadlineFilter: deadlineFilter,
           nextExcludeBestSelected: excludeBestSelected,
         });
       } catch {
@@ -275,6 +304,7 @@ export default function QuestionsPage() {
       nextQuery: query,
       nextCategoryId: selectedCategory,
       nextSort: sort,
+      nextDeadlineFilter: deadlineFilter,
       nextExcludeBestSelected: excludeBestSelected,
     });
   };
@@ -369,6 +399,19 @@ export default function QuestionsPage() {
             <option value="latest">新着順</option>
             <option value="reward">報酬額が高い順</option>
             <option value="answers">回答数が多い順</option>
+            <option value="deadline_asc">期限が近い順</option>
+          </select>
+
+          <select
+            value={deadlineFilter}
+            onChange={(e) => setDeadlineFilter(e.target.value)}
+            className="w-full border rounded px-3 py-2 lg:w-auto lg:min-w-[11rem] lg:flex-none"
+          >
+            <option value="all">回答期限すべて</option>
+            <option value="has_deadline">回答期限あり</option>
+            <option value="no_deadline">回答期限なし</option>
+            <option value="open_deadline">回答期限内</option>
+            <option value="expired_deadline">回答期限終了</option>
           </select>
 
           <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm text-gray-700 whitespace-nowrap lg:flex-none lg:shrink-0">
@@ -386,12 +429,14 @@ export default function QuestionsPage() {
               setQuery("");
               setSelectedCategory("");
               setSort("latest");
+              setDeadlineFilter("all");
               setExcludeBestSelected(false);
               void fetchQuestions({
                 nextPage: 1,
                 nextQuery: "",
                 nextCategoryId: "",
                 nextSort: "latest",
+                nextDeadlineFilter: "all",
                 nextExcludeBestSelected: false,
               });
             }}
@@ -443,6 +488,19 @@ export default function QuestionsPage() {
                 🔒 未公開（決済待ち）
               </span>
             )}
+            <span className="inline-block mt-2 ml-2 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
+              {q.answerDeadline
+                ? (() => {
+                    const state = getQuestionDeadlineState({
+                      answerDeadline: q.answerDeadline,
+                    });
+                    const label = formatJapaneseDateTime(q.answerDeadline);
+                    return state === "expired"
+                      ? `回答期限終了：${label}`
+                      : `回答期限：${label}`;
+                  })()
+                : "回答期限なし"}
+            </span>
 
             <p className="text-xs text-gray-500 mt-1">投稿日：{new Date(q.createdAt).toLocaleString()}</p>
 

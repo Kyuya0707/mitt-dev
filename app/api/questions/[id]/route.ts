@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import type { QuestionAnswer } from "@/app/(app)/questions/[id]/types";
 import { validateViewerPrice } from "@/lib/viewer-price";
 import { getSafeErrorMessage } from "@/lib/safe-error";
+import { parseAnswerDeadlineInput } from "@/lib/question-deadline";
 
 export async function GET(
   _req: Request,
@@ -116,7 +117,7 @@ export async function PATCH(
 
     const question = await prisma.question.findUnique({
       where: { id },
-      select: { userId: true },
+      select: { userId: true, isClosed: true },
     });
 
     if (!question) {
@@ -131,19 +132,57 @@ export async function PATCH(
     }
 
     const body = await req.json().catch(() => ({}));
-    const viewerPriceValidation = validateViewerPrice(body.viewerPrice);
 
-    if (!viewerPriceValidation.ok) {
+    if (question.isClosed) {
+      return NextResponse.json(
+        { error: "クローズ済みの質問は変更できません" },
+        { status: 400 }
+      );
+    }
+
+    const hasViewerPrice = body.viewerPrice !== undefined;
+    const hasAnswerDeadline = body.answerDeadline !== undefined;
+
+    if (!hasViewerPrice && !hasAnswerDeadline) {
+      return NextResponse.json(
+        { error: "更新内容がありません" },
+        { status: 400 }
+      );
+    }
+
+    const viewerPriceValidation = hasViewerPrice
+      ? validateViewerPrice(body.viewerPrice)
+      : null;
+
+    if (viewerPriceValidation && !viewerPriceValidation.ok) {
       return NextResponse.json(
         { error: viewerPriceValidation.message },
         { status: 400 }
       );
     }
 
+    const answerDeadlineValidation = hasAnswerDeadline
+      ? parseAnswerDeadlineInput(body.answerDeadline)
+      : null;
+
+    if (answerDeadlineValidation && !answerDeadlineValidation.ok) {
+      return NextResponse.json(
+        { error: answerDeadlineValidation.message },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.question.update({
       where: { id },
-      data: { viewerPrice: viewerPriceValidation.value },
-      select: { id: true, viewerPrice: true },
+      data: {
+        ...(hasViewerPrice
+          ? { viewerPrice: viewerPriceValidation?.value ?? null }
+          : {}),
+        ...(hasAnswerDeadline
+          ? { answerDeadline: answerDeadlineValidation?.value ?? null }
+          : {}),
+      },
+      select: { id: true, viewerPrice: true, answerDeadline: true },
     });
 
     return NextResponse.json(updated);

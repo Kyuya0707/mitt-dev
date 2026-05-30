@@ -17,8 +17,14 @@ import QuestionPostedConversionTracker from "./QuestionPostedConversionTracker";
 import PurchaseConversionTracker from "./PurchaseConversionTracker";
 import QuestionRepurchaseButton from "./QuestionRepurchaseButton";
 import ViewerPriceEditor from "./ViewerPriceEditor";
+import AnswerDeadlineEditor from "./AnswerDeadlineEditor";
 import CancellationRequestCard from "./CancellationRequestCard";
 import type { QuestionAnswer } from "./types";
+import {
+  formatJapaneseDateTime,
+  getQuestionCancelAvailableAt,
+  getQuestionDeadlineState,
+} from "@/lib/question-deadline";
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -41,6 +47,7 @@ const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
   isClosed: true,
   rewardAmount: true,
   viewerPrice: true,
+  answerDeadline: true,
   isPaid: true,
   category: true,
   user: true,
@@ -217,9 +224,15 @@ export default async function Page({
     },
   });
 
-  const cancellationAvailableAt = new Date(question.createdAt);
-  cancellationAvailableAt.setDate(cancellationAvailableAt.getDate() + 7);
+  const cancellationAvailableAt = getQuestionCancelAvailableAt({
+    createdAt: question.createdAt,
+    answerDeadline: question.answerDeadline,
+  });
   const isCancellationOldEnough = cancellationAvailableAt <= new Date();
+  const questionDeadlineState = getQuestionDeadlineState({
+    answerDeadline: question.answerDeadline,
+  });
+  const questionDeadlineLabel = formatJapaneseDateTime(question.answerDeadline);
   const canRequestCancellation =
     isAuthor &&
     isCancellationOldEnough &&
@@ -436,6 +449,8 @@ export default async function Page({
           questionId={question.id}
           canRequest={canRequestCancellation}
           isOldEnough={isCancellationOldEnough}
+          cancelAvailableAt={cancellationAvailableAt.toISOString()}
+          answerDeadline={question.answerDeadline?.toISOString() ?? null}
           existingStatus={latestCancellationRequest?.status ?? null}
           requestedAt={
             latestCancellationRequest?.requestedAt?.toISOString() ?? null
@@ -461,6 +476,35 @@ export default async function Page({
       <p className="text-sm text-gray-500 mb-4">
         カテゴリー：{question.category?.name}
       </p>
+
+      <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+        <div className="font-semibold text-gray-900">回答期限</div>
+        <p className="mt-1">
+          {question.answerDeadline
+            ? questionDeadlineState === "expired"
+              ? `回答期限終了：${questionDeadlineLabel}`
+              : `回答期限：${questionDeadlineLabel}`
+            : "回答期限なし"}
+        </p>
+        <p className="mt-2 text-xs leading-6 text-gray-500">
+          {question.answerDeadline
+            ? "この期限を過ぎると、質問者はキャンセル申請できるようになります。"
+            : "回答期限を設定していない場合は、投稿から2週間後にキャンセル申請できます。"}
+        </p>
+        <p className="mt-1 text-xs leading-6 text-gray-500">
+          キャンセル申請可能日：
+          {formatJapaneseDateTime(cancellationAvailableAt)}
+        </p>
+      </div>
+
+      {isAuthor && !question.isClosed && (
+        <AnswerDeadlineEditor
+          questionId={question.id}
+          initialAnswerDeadline={
+            question.answerDeadline?.toISOString() ?? null
+          }
+        />
+      )}
 
       {/* 本文 */}
       <div className="whitespace-pre-line">{question.content}</div>

@@ -4,6 +4,9 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { supabaseServer } from "@/lib/supabase-server";
 import { validateViewerPrice } from "@/lib/viewer-price";
+import {
+  parseAnswerDeadlineInput,
+} from "@/lib/question-deadline";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 // ================================
@@ -25,6 +28,12 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 const PUBLIC_QUESTION_LIST_CACHE_CONTROL =
   "public, s-maxage=30, stale-while-revalidate=300";
+type DeadlineFilter =
+  | "all"
+  | "has_deadline"
+  | "no_deadline"
+  | "open_deadline"
+  | "expired_deadline";
 
 function getSafeErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "unknown_error";
@@ -45,6 +54,8 @@ function buildQuestionListWhere(params: {
   categoryId: string;
   categoryName: string;
   excludeBest: boolean;
+  deadlineFilter: DeadlineFilter;
+  now: Date;
 }) {
   const where: Prisma.QuestionWhereInput = {
     cancellationRequests: {
@@ -83,15 +94,40 @@ function buildQuestionListWhere(params: {
     where.bestAnswerId = null;
   }
 
+  switch (params.deadlineFilter) {
+    case "has_deadline":
+      where.answerDeadline = { not: null };
+      break;
+    case "no_deadline":
+      where.answerDeadline = null;
+      break;
+    case "open_deadline":
+      where.answerDeadline = { gt: params.now };
+      break;
+    case "expired_deadline":
+      where.answerDeadline = { not: null, lte: params.now };
+      break;
+    case "all":
+    default:
+      break;
+  }
+
   return where;
 }
 
-function buildQuestionListOrderBy(sort: string): Prisma.QuestionOrderByWithRelationInput {
+function buildQuestionListOrderBy(
+  sort: string
+): Prisma.QuestionOrderByWithRelationInput | Prisma.QuestionOrderByWithRelationInput[] {
   switch (sort) {
     case "reward":
       return { rewardAmount: "desc" };
     case "answers":
       return { answers: { _count: "desc" } };
+    case "deadline_asc":
+      return [
+        { answerDeadline: { sort: "asc", nulls: "last" } },
+        { createdAt: "desc" },
+      ];
     case "latest":
     case "new":
     default:
@@ -120,6 +156,14 @@ export async function GET(req: Request) {
     const categoryId = url.searchParams.get("categoryId")?.trim() ?? "";
     const categoryName = url.searchParams.get("category")?.trim() ?? "";
     const sort = url.searchParams.get("sort")?.trim() ?? "latest";
+    const deadlineFilterParam = url.searchParams.get("deadlineFilter")?.trim() ?? "all";
+    const deadlineFilter: DeadlineFilter =
+      deadlineFilterParam === "has_deadline" ||
+      deadlineFilterParam === "no_deadline" ||
+      deadlineFilterParam === "open_deadline" ||
+      deadlineFilterParam === "expired_deadline"
+        ? deadlineFilterParam
+        : "all";
     const excludeBest =
       url.searchParams.get("excludeBest") === "1" ||
       url.searchParams.get("excludeBest") === "true";
@@ -135,6 +179,8 @@ export async function GET(req: Request) {
       categoryId,
       categoryName,
       excludeBest,
+      deadlineFilter,
+      now: new Date(),
     });
     const orderBy = buildQuestionListOrderBy(sort);
 
@@ -153,6 +199,7 @@ export async function GET(req: Request) {
         content: true,
         rewardAmount: true,
         viewerPrice: true,
+        answerDeadline: true,
         createdAt: true,
         isClosed: true,
         isPaid: true,
@@ -178,6 +225,7 @@ export async function GET(req: Request) {
       content: buildQuestionExcerpt(question.content),
       rewardAmount: question.rewardAmount,
       viewerPrice: question.viewerPrice,
+      answerDeadline: question.answerDeadline,
       createdAt: question.createdAt,
       isClosed: question.isClosed,
       isPaid: question.isPaid,
@@ -188,15 +236,16 @@ export async function GET(req: Request) {
 
     const totalPages = total === 0 ? 1 : Math.ceil(total / limit);
 
-    logPerf("questions.GET", {
-      total: `${durationMs(totalStart)}ms`,
-      count: `${countDuration}ms`,
-      findMany: `${findManyDuration}ms`,
-      items: items.length,
-      page,
-      limit,
-      sort,
-    });
+      logPerf("questions.GET", {
+        total: `${durationMs(totalStart)}ms`,
+        count: `${countDuration}ms`,
+        findMany: `${findManyDuration}ms`,
+        items: items.length,
+        page,
+        limit,
+        sort,
+        deadlineFilter,
+      });
 
     return NextResponse.json(
       {
@@ -289,6 +338,7 @@ export async function POST(req: Request) {
     const categoryId = formData.get("categoryId")?.toString();
     const rewardAmount = Number(formData.get("rewardAmount") || 0);
     const viewerPriceRaw = formData.get("viewerPrice");
+    const answerDeadlineRaw = formData.get("answerDeadline");
 
     // 入力チェック
     if (!title || !body || !categoryId) {
@@ -320,6 +370,16 @@ export async function POST(req: Request) {
       );
     }
 
+    const answerDeadlineValidation = parseAnswerDeadlineInput(
+      answerDeadlineRaw?.toString() ?? ""
+    );
+    if (!answerDeadlineValidation.ok) {
+      return NextResponse.json(
+        { error: answerDeadlineValidation.message },
+        { status: 400 }
+      );
+    }
+
     // --- カテゴリ存在チェック（IDで検索） ---
     const categoryCheckStart = nowMs();
     const category = await prisma.category.findUnique({
@@ -346,6 +406,7 @@ export async function POST(req: Request) {
         categoryId,
         rewardAmount,
         viewerPrice: viewerPriceValidation.value,
+        answerDeadline: answerDeadlineValidation.value,
       },
     });
     const questionCreateDuration = durationMs(questionCreateStart);

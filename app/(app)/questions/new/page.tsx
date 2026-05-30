@@ -10,6 +10,10 @@ import { MAX_VIEWER_PRICE_JPY } from "@/lib/viewer-price";
 import { toJapaneseErrorMessage } from "@/lib/errors";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import { trackGA4BeginCheckout } from "@/lib/ga";
+import {
+  MAX_ANSWER_DEADLINE_DAYS,
+  toDatetimeLocalValue,
+} from "@/lib/question-deadline";
 import type { User } from "@supabase/supabase-js";
 import PpConsentSection from "@/app/mypage/PpConsentSection";
 
@@ -34,6 +38,7 @@ export default function NewQuestionPage() {
   const [body, setBody] = useState("");
   const [rewardAmount, setRewardAmount] = useState(500);
   const [viewerPrice, setViewerPrice] = useState(500);
+  const [answerDeadline, setAnswerDeadline] = useState("");
   const [categories, setCategories] =
     useState<{ id: string; name: string }[]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -171,6 +176,7 @@ export default function NewQuestionPage() {
       formData.append("categoryId", categoryId);
       formData.append("rewardAmount", String(rewardAmount));
       formData.append("viewerPrice", String(viewerPrice));
+      formData.append("answerDeadline", answerDeadline);
       imageItems.forEach((item) => formData.append("images", item.file));
 
       // ① まず質問をDBに保存
@@ -336,6 +342,26 @@ export default function NewQuestionPage() {
                 onChange={(e) => setBody(e.target.value)}
                 required
               />
+            </div>
+
+            {/* 回答期限 */}
+            <div>
+              <label className="block mb-1 font-medium">
+                回答期限（任意）
+              </label>
+              <input
+                type="datetime-local"
+                className="w-full border p-2 rounded text-black"
+                value={answerDeadline}
+                onChange={(e) => setAnswerDeadline(e.target.value)}
+                min={toDatetimeLocalValue(new Date())}
+                max={toDatetimeLocalValue(
+                  new Date(Date.now() + MAX_ANSWER_DEADLINE_DAYS * 24 * 60 * 60 * 1000)
+                )}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                この期限を過ぎると、質問者はキャンセル申請できるようになります。未設定の場合は、投稿から2週間後にキャンセル申請できます。
+              </p>
             </div>
 
             {/* 報酬額 */}
