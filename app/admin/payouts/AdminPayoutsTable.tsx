@@ -9,6 +9,9 @@ type AdminPayoutRow = {
   userId: string;
   questionId: string | null;
   answerId: string | null;
+  negotiationId: string | null;
+  kind: string;
+  description: string | null;
   grossAmount: number | null;
   platformFeeAmount: number | null;
   netAmount: number | null;
@@ -73,6 +76,16 @@ export default function AdminPayoutsTable() {
 
   const getConnectStatusText = (value: boolean) => (value ? "完了" : "未完");
   const formatYen = (value: number) => `${value.toLocaleString("ja-JP")}円`;
+  const getPayoutKindLabel = (kind: string) => {
+    switch (kind) {
+      case "question_reward":
+        return "質問報酬";
+      case "negotiation_reward":
+        return "交渉追加報酬";
+      default:
+        return kind;
+    }
+  };
 
   const loadPayouts = async () => {
     setLoading(true);
@@ -152,8 +165,8 @@ export default function AdminPayoutsTable() {
       ) : (
         <div className="space-y-4">
           {payouts.map((payout) => {
-            const displayName =
-              payout.user.username || payout.user.email || payout.user.id;
+              const displayName =
+                payout.user.username || payout.user.email || payout.user.id;
             const grossAmount = payout.grossAmount ?? payout.amount;
             const platformFeeAmount = payout.platformFeeAmount ?? 0;
             const netAmount = payout.netAmount ?? payout.amount;
@@ -178,9 +191,19 @@ export default function AdminPayoutsTable() {
                     {new Date(payout.createdAt).toLocaleString("ja-JP")}
                   </p>
                   <p>
+                    <span className="font-semibold">種別:</span>{" "}
+                    {getPayoutKindLabel(payout.kind)}
+                  </p>
+                  <p>
                     <span className="font-semibold">status:</span>{" "}
                     {getStatusLabel(payout.status)}
                   </p>
+                  {payout.description && (
+                    <p className="md:col-span-2">
+                      <span className="font-semibold">説明:</span>{" "}
+                      {payout.description}
+                    </p>
+                  )}
                   <p>
                     <span className="font-semibold">回答者:</span> {displayName}
                   </p>
@@ -215,6 +238,10 @@ export default function AdminPayoutsTable() {
                   <p>
                     <span className="font-semibold">answerId:</span>{" "}
                     {payout.answerId ?? "未設定"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">negotiationId:</span>{" "}
+                    {payout.negotiationId ?? "未設定"}
                   </p>
                 </div>
 

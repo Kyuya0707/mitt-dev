@@ -4,7 +4,7 @@ import {
 } from "@/lib/email-footer";
 
 type AdminPayoutNotificationInput = {
-  payoutType: "question_reward" | "best_view";
+  payoutType: "question_reward" | "negotiation_reward" | "best_view";
   amount: number;
   recipientName?: string | null;
   recipientEmail?: string | null;
@@ -44,7 +44,16 @@ function escapeHtml(value: string) {
 }
 
 function getPayoutTypeLabel(type: AdminPayoutNotificationInput["payoutType"]) {
-  return type === "question_reward" ? "質問報酬" : "BEST閲覧料（質問者分）";
+  switch (type) {
+    case "question_reward":
+      return "質問報酬";
+    case "negotiation_reward":
+      return "交渉追加報酬";
+    case "best_view":
+      return "BEST閲覧料（質問者分）";
+    default:
+      return type;
+  }
 }
 
 function buildAdminPayoutEmailContent(input: AdminPayoutNotificationInput) {

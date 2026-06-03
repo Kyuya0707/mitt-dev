@@ -160,7 +160,7 @@ model Answer {
   negotiation Negotiation?
 
   reports Report[]
-  payout  Payout?
+  payouts Payout[] @relation("AnswerPayouts")
 
   @@index([questionId, createdAt])
   @@index([userId, createdAt])
@@ -234,6 +234,8 @@ model Negotiation {
   expectedDays Int?
 
   status NegotiationStatus @default(PENDING)
+
+  payout Payout? @relation("NegotiationPayout")
 
   answer Answer @relation(fields: [answerId], references: [id])
 
@@ -365,8 +367,15 @@ model Payout {
   questionId String?
   question   Question? @relation(fields: [questionId], references: [id])
 
-  answerId String? @unique
-  answer   Answer? @relation(fields: [answerId], references: [id])
+  answerId String?
+  answer   Answer? @relation("AnswerPayouts", fields: [answerId], references: [id])
+
+  kind String @default("question_reward")
+
+  negotiationId String?      @unique
+  negotiation   Negotiation? @relation("NegotiationPayout", fields: [negotiationId], references: [id])
+
+  description String?
 
   grossAmount       Int?
   platformFeeAmount Int?
@@ -378,6 +387,8 @@ model Payout {
   stripeTransferId  String?   @unique
   transferredAt     DateTime?
   failureReason     String?
+
+  @@unique([answerId, kind])
 }
 
 model CancellationRequest {

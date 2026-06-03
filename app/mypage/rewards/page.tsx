@@ -77,6 +77,8 @@ export default async function MyPageRewardsPage() {
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        kind: true,
+        description: true,
         amount: true,
         status: true,
         questionId: true,
@@ -138,7 +140,10 @@ export default async function MyPageRewardsPage() {
   const history: RewardHistoryItem[] = [
     ...questionRewardPayouts.map((payout) => ({
       id: payout.id,
-      typeLabel: "質問報酬",
+      typeLabel:
+        payout.kind === "negotiation_reward"
+          ? "交渉追加報酬"
+          : "質問報酬",
       amount: payout.amount,
       status: payout.status,
       createdAt: payout.createdAt,
@@ -177,10 +182,10 @@ export default async function MyPageRewardsPage() {
   return (
     <div className="mx-auto max-w-5xl p-6 text-black">
       <div className="mb-6 flex items-center justify-between gap-4">
-      <div>
+        <div>
           <h1 className="text-3xl font-bold">報酬確認</h1>
           <p className="mt-2 text-sm text-gray-600">
-            質問報酬とBEST閲覧料の受取状況を確認できます。
+            質問報酬・交渉追加報酬・BEST閲覧料の受取状況を確認できます。
           </p>
         </div>
         <Link href="/mypage" className="text-sm text-blue-600 underline">

@@ -177,9 +177,12 @@ export async function POST(
       destination: destinationStripeAccountId,
       metadata: {
         payoutId: payout.id,
+        payoutKind: payout.kind,
+        payoutDescription: payout.description ?? "",
         userId: payout.userId,
         questionId: questionId ?? "",
         answerId: payout.answerId ?? "",
+        negotiationId: payout.negotiationId ?? "",
       },
     });
 

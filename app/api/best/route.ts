@@ -113,7 +113,12 @@ export async function POST(req: Request) {
       });
 
       const existingPayout = await tx.payout.findUnique({
-        where: { answerId: answer.id },
+        where: {
+          answerId_kind: {
+            answerId: answer.id,
+            kind: "question_reward",
+          },
+        },
         select: { id: true },
       });
 
@@ -123,6 +128,8 @@ export async function POST(req: Request) {
             userId: answerUserId,
             questionId,
             answerId: answer.id,
+            kind: "question_reward",
+            description: "BEST回答報酬",
             grossAmount,
             platformFeeAmount,
             netAmount,
