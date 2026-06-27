@@ -5,6 +5,10 @@ import {
   NOTIFICATION_TYPES,
   safeCreateUserNotification,
 } from "@/lib/notifications";
+import {
+  buildNegotiationTransferGroup,
+  resolveCheckoutChargeId,
+} from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
 type VerifyNegotiationCheckoutSessionResult =
@@ -177,6 +181,11 @@ async function finalizeNegotiationCheckoutSession(
     return { ok: false, reason: "stripe_error" };
   }
 
+  const transferGroup = buildNegotiationTransferGroup(negotiationId);
+  const stripe = getStripe();
+  const stripeChargeId = await resolveCheckoutChargeId(stripe, session).catch(
+    () => null
+  );
   const answerUserId = negotiation.answer?.userId;
 
   if (!answerUserId) {
@@ -186,11 +195,11 @@ async function finalizeNegotiationCheckoutSession(
   const createdNegotiation = await prisma.$transaction(async (tx) => {
     const updatedNegotiation = await tx.negotiation.update({
       where: { id: negotiationId },
-      data: { status: "ACCEPTED" },
-      select: {
-        id: true,
-        questionId: true,
-        status: true,
+        data: { status: "ACCEPTED" },
+        select: {
+          id: true,
+          questionId: true,
+          status: true,
         answer: {
           select: {
             id: true,
@@ -235,6 +244,8 @@ async function finalizeNegotiationCheckoutSession(
           status: "pending",
           stripeAccountId:
             updatedNegotiation.answer.user?.stripeAccountId ?? null,
+          stripeChargeId,
+          transferGroup,
         },
         select: {
           id: true,
@@ -264,6 +275,8 @@ async function finalizeNegotiationCheckoutSession(
         select: {
           id: true,
           amount: true,
+          stripeChargeId: true,
+          transferGroup: true,
           user: {
             select: {
               username: true,
@@ -275,6 +288,23 @@ async function finalizeNegotiationCheckoutSession(
 
       if (!existingPayout) {
         throw error;
+      }
+
+      if (
+        (stripeChargeId && !existingPayout.stripeChargeId) ||
+        (transferGroup && !existingPayout.transferGroup)
+      ) {
+        await tx.payout.update({
+          where: { id: existingPayout.id },
+          data: {
+            ...(stripeChargeId && !existingPayout.stripeChargeId
+              ? { stripeChargeId }
+              : {}),
+            ...(transferGroup && !existingPayout.transferGroup
+              ? { transferGroup }
+              : {}),
+          },
+        });
       }
 
       return {

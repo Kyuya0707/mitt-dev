@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import { getBaseUrl } from "@/lib/site-url";
+import { buildQuestionTransferGroup } from "@/lib/stripe-connect-transfer";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
 
 export const runtime = "nodejs"; // Stripe/Prismaなので明示（Edge回避）
@@ -89,6 +90,9 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      payment_intent_data: {
+        transfer_group: buildQuestionTransferGroup(questionId),
+      },
       wallet_options: {
         link: {
           display: "never",

@@ -62,6 +62,8 @@ export async function GET() {
       kind: payout.kind,
       description: payout.description,
       negotiationId: payout.negotiationId,
+      stripeChargeId: payout.stripeChargeId,
+      transferGroup: payout.transferGroup,
       status: payout.status,
       stripeAccountId: payout.stripeAccountId,
       stripeTransferId: payout.stripeTransferId,

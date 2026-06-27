@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { getBaseUrl } from "@/lib/site-url";
+import { buildBestViewTransferGroup } from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs";
@@ -129,6 +130,12 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      payment_intent_data: {
+        transfer_group: buildBestViewTransferGroup(
+          answer.questionId,
+          answer.id
+        ),
+      },
       wallet_options: {
         link: {
           display: "never",

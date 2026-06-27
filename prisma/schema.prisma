@@ -261,6 +261,8 @@ model Purchase {
   currency String @default("jpy")
 
   stripeSessionId String? @unique
+  stripeChargeId  String?
+  transferGroup   String?
 
   status PaymentStatus @default(PAID)
 
@@ -268,6 +270,8 @@ model Purchase {
 
   @@index([userId, createdAt])
   @@index([userId, questionId, status])
+  @@index([stripeChargeId])
+  @@index([transferGroup])
 }
 
 model BestViewRevenueShare {
@@ -315,11 +319,15 @@ model BestViewPayout {
   status String @default("pending")
 
   stripeAccountId  String?
+  stripeChargeId   String?
+  transferGroup    String?
   stripeTransferId String?   @unique
   transferredAt    DateTime?
   failureReason    String?
 
   @@unique([revenueShareId, recipientType])
+  @@index([stripeChargeId])
+  @@index([transferGroup])
 }
 
 model Notification {
@@ -384,11 +392,15 @@ model Payout {
   currency          String    @default("jpy")
   status            String
   stripeAccountId   String?
+  stripeChargeId    String?
+  transferGroup     String?
   stripeTransferId  String?   @unique
   transferredAt     DateTime?
   failureReason     String?
 
   @@unique([answerId, kind])
+  @@index([stripeChargeId])
+  @@index([transferGroup])
 }
 
 model CancellationRequest {

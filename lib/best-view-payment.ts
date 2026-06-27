@@ -2,6 +2,10 @@ import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { sendAdminPayoutNotification } from "@/lib/admin-notifications";
+import {
+  buildBestViewTransferGroup,
+  resolveCheckoutChargeId,
+} from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
 type VerifyBestViewCheckoutSessionResult =
@@ -59,6 +63,8 @@ async function ensureBestViewRevenueShare(params: {
   answerOwnerId: string;
   grossAmount: number;
   currency: string;
+  stripeChargeId?: string | null;
+  transferGroup?: string | null;
 }) {
   const existing = await prisma.bestViewRevenueShare.findUnique({
     where: { purchaseId: params.purchaseId },
@@ -80,6 +86,8 @@ async function ensureBestViewRevenueShare(params: {
       questionOwnerId: existing.questionOwnerId,
       questionOwnerAmount: existing.questionOwnerAmount,
       currency: existing.currency,
+      stripeChargeId: params.stripeChargeId ?? null,
+      transferGroup: params.transferGroup ?? null,
     });
     return existing;
   }
@@ -119,6 +127,8 @@ async function ensureBestViewRevenueShare(params: {
     questionOwnerId: revenueShare.questionOwnerId,
     questionOwnerAmount: revenueShare.questionOwnerAmount,
     currency: revenueShare.currency,
+    stripeChargeId: params.stripeChargeId ?? null,
+    transferGroup: params.transferGroup ?? null,
   });
 
   return revenueShare;
@@ -131,6 +141,8 @@ async function ensureBestViewPayouts(params: {
   questionOwnerId: string;
   questionOwnerAmount: number;
   currency: string;
+  stripeChargeId?: string | null;
+  transferGroup?: string | null;
 }) {
   const existingQuestionOwnerPayout = await prisma.bestViewPayout.findUnique({
     where: {
@@ -139,40 +151,64 @@ async function ensureBestViewPayouts(params: {
         recipientType: "question_owner",
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      stripeChargeId: true,
+      transferGroup: true,
+    },
   });
 
-  if (!existingQuestionOwnerPayout) {
-    const createdPayout = await prisma.bestViewPayout.create({
-      data: {
-        revenueShareId: params.revenueShareId,
-        recipientUserId: params.questionOwnerId,
-        recipientType: "question_owner",
-        amount: params.questionOwnerAmount,
-        currency: params.currency,
-        status: "pending",
-      },
-      select: {
-        amount: true,
-        recipientUser: {
-          select: {
-            username: true,
-            email: true,
-          },
+  if (existingQuestionOwnerPayout) {
+    if (
+      (params.stripeChargeId && !existingQuestionOwnerPayout.stripeChargeId) ||
+      (params.transferGroup && !existingQuestionOwnerPayout.transferGroup)
+    ) {
+      await prisma.bestViewPayout.update({
+        where: { id: existingQuestionOwnerPayout.id },
+        data: {
+          ...(params.stripeChargeId && !existingQuestionOwnerPayout.stripeChargeId
+            ? { stripeChargeId: params.stripeChargeId }
+            : {}),
+          ...(params.transferGroup && !existingQuestionOwnerPayout.transferGroup
+            ? { transferGroup: params.transferGroup }
+            : {}),
+        },
+      });
+    }
+    return;
+  }
+
+  const createdPayout = await prisma.bestViewPayout.create({
+    data: {
+      revenueShareId: params.revenueShareId,
+      recipientUserId: params.questionOwnerId,
+      recipientType: "question_owner",
+      amount: params.questionOwnerAmount,
+      currency: params.currency,
+      status: "pending",
+      stripeChargeId: params.stripeChargeId ?? null,
+      transferGroup: params.transferGroup ?? null,
+    },
+    select: {
+      amount: true,
+      recipientUser: {
+        select: {
+          username: true,
+          email: true,
         },
       },
-    });
+    },
+  });
 
-    await sendAdminPayoutNotification({
-      payoutType: "best_view",
-      amount: createdPayout.amount,
-      recipientName: createdPayout.recipientUser.username,
-      recipientEmail: createdPayout.recipientUser.email,
-      questionId: params.questionId,
-      answerId: params.answerId,
-      adminPath: "/admin/best-view-payouts",
-    });
-  }
+  await sendAdminPayoutNotification({
+    payoutType: "best_view",
+    amount: createdPayout.amount,
+    recipientName: createdPayout.recipientUser.username,
+    recipientEmail: createdPayout.recipientUser.email,
+    questionId: params.questionId,
+    answerId: params.answerId,
+    adminPath: "/admin/best-view-payouts",
+  });
 }
 
 export async function verifyBestViewCheckoutSession(
@@ -263,6 +299,12 @@ async function finalizeBestViewCheckoutSession(
     return { ok: false, reason: "purchase_subject_not_found" };
   }
 
+  const transferGroup = buildBestViewTransferGroup(questionId, answerId);
+  const stripe = getStripe();
+  const stripeChargeId = await resolveCheckoutChargeId(stripe, session).catch(
+    () => null
+  );
+
   if (!isPaid) {
     return {
       ok: true,
@@ -279,32 +321,41 @@ async function finalizeBestViewCheckoutSession(
   const existingBySession = session.id
     ? await prisma.purchase.findUnique({
         where: { stripeSessionId: session.id },
-        select: { id: true },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          stripeChargeId: true,
+          transferGroup: true,
+        },
       })
     : null;
 
   if (existingBySession) {
-    const existingPurchase = await prisma.purchase.findUnique({
+    await prisma.purchase.update({
       where: { id: existingBySession.id },
-      select: {
-        id: true,
-        amount: true,
-        currency: true,
+      data: {
+        ...(stripeChargeId && !existingBySession.stripeChargeId
+          ? { stripeChargeId }
+          : {}),
+        ...(transferGroup && !existingBySession.transferGroup
+          ? { transferGroup }
+          : {}),
       },
     });
 
-    if (existingPurchase) {
-      await ensureBestViewRevenueShare({
-        purchaseId: existingPurchase.id,
-        questionId,
-        answerId,
-        buyerId,
-        questionOwnerId: answer.question.userId,
-        answerOwnerId: answer.userId,
-        grossAmount: existingPurchase.amount,
-        currency: existingPurchase.currency,
-      });
-    }
+    await ensureBestViewRevenueShare({
+      purchaseId: existingBySession.id,
+      questionId,
+      answerId,
+      buyerId,
+      questionOwnerId: answer.question.userId,
+      answerOwnerId: answer.userId,
+      grossAmount: existingBySession.amount,
+      currency: existingBySession.currency,
+      stripeChargeId: stripeChargeId ?? existingBySession.stripeChargeId,
+      transferGroup: transferGroup ?? existingBySession.transferGroup,
+    });
 
     return {
       ok: true,
@@ -324,31 +375,40 @@ async function finalizeBestViewCheckoutSession(
       questionId,
       status: "PAID",
     },
-    select: { id: true },
+    select: {
+      id: true,
+      amount: true,
+      currency: true,
+      stripeChargeId: true,
+      transferGroup: true,
+    },
   });
 
   if (existingByUser) {
-    const existingPurchase = await prisma.purchase.findUnique({
+    await prisma.purchase.update({
       where: { id: existingByUser.id },
-      select: {
-        id: true,
-        amount: true,
-        currency: true,
+      data: {
+        ...(stripeChargeId && !existingByUser.stripeChargeId
+          ? { stripeChargeId }
+          : {}),
+        ...(transferGroup && !existingByUser.transferGroup
+          ? { transferGroup }
+          : {}),
       },
     });
 
-    if (existingPurchase) {
-      await ensureBestViewRevenueShare({
-        purchaseId: existingPurchase.id,
-        questionId,
-        answerId,
-        buyerId,
-        questionOwnerId: answer.question.userId,
-        answerOwnerId: answer.userId,
-        grossAmount: existingPurchase.amount,
-        currency: existingPurchase.currency,
-      });
-    }
+    await ensureBestViewRevenueShare({
+      purchaseId: existingByUser.id,
+      questionId,
+      answerId,
+      buyerId,
+      questionOwnerId: answer.question.userId,
+      answerOwnerId: answer.userId,
+      grossAmount: existingByUser.amount,
+      currency: existingByUser.currency,
+      stripeChargeId: stripeChargeId ?? existingByUser.stripeChargeId,
+      transferGroup: transferGroup ?? existingByUser.transferGroup,
+    });
 
     return {
       ok: true,
@@ -386,6 +446,8 @@ async function finalizeBestViewCheckoutSession(
       amount: Math.round(amount),
       status: "PAID",
       currency,
+      stripeChargeId,
+      transferGroup,
     },
     select: {
       id: true,
@@ -403,6 +465,8 @@ async function finalizeBestViewCheckoutSession(
     answerOwnerId: answer.userId,
     grossAmount: purchase.amount,
     currency: purchase.currency,
+    stripeChargeId,
+    transferGroup,
   });
 
   return {

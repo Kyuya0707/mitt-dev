@@ -60,6 +60,8 @@ export async function GET() {
       recipientType: payout.recipientType,
       amount: payout.amount,
       currency: payout.currency,
+      stripeChargeId: payout.stripeChargeId,
+      transferGroup: payout.transferGroup,
       status: payout.status,
       stripeAccountId: payout.stripeAccountId,
       stripeTransferId: payout.stripeTransferId,

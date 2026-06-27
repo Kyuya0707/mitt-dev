@@ -102,6 +102,19 @@ export async function POST(req: Request) {
     const grossAmount = q.rewardAmount;
     const platformFeeAmount = Math.floor(grossAmount * 0.1);
     const netAmount = grossAmount - platformFeeAmount;
+    const relatedPurchase = await prisma.purchase.findFirst({
+      where: {
+        questionId,
+        status: "PAID",
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+      select: {
+        stripeChargeId: true,
+        transferGroup: true,
+      },
+    });
 
     const createdPayout = await prisma.$transaction(async (tx) => {
       await tx.question.update({
@@ -130,17 +143,19 @@ export async function POST(req: Request) {
             answerId: answer.id,
             kind: "question_reward",
             description: "BEST回答報酬",
-            grossAmount,
-            platformFeeAmount,
-            netAmount,
-            amount: netAmount,
-            currency: "jpy",
-            status: "pending",
-            stripeAccountId: answer.user?.stripeAccountId ?? null,
-          },
-        });
-        return {
+          grossAmount,
+          platformFeeAmount,
+          netAmount,
           amount: netAmount,
+          currency: "jpy",
+          status: "pending",
+          stripeAccountId: answer.user?.stripeAccountId ?? null,
+          stripeChargeId: relatedPurchase?.stripeChargeId ?? null,
+          transferGroup: relatedPurchase?.transferGroup ?? null,
+        },
+      });
+      return {
+        amount: netAmount,
           questionId,
           answerId: answer.id,
           user: {

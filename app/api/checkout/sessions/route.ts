@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/site-url";
+import { buildNegotiationTransferGroup } from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
@@ -123,6 +124,9 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      payment_intent_data: {
+        transfer_group: buildNegotiationTransferGroup(negotiationId),
+      },
       wallet_options: {
         link: {
           display: "never",

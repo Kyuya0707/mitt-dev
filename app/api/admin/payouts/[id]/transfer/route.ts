@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { getCurrentUserAdminStatus } from "@/lib/admin";
+import { buildQuestionTransferGroup } from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
 export const runtime = "nodejs";
@@ -170,11 +171,15 @@ export async function POST(
   try {
     const stripe = getStripe();
     const questionId = payout.questionId ?? payout.question?.id ?? payout.answer?.questionId;
+    const transferGroup =
+      payout.transferGroup ?? (questionId ? buildQuestionTransferGroup(questionId) : null);
 
     const transfer = await stripe.transfers.create({
       amount: transferAmount,
       currency: payout.currency || "jpy",
       destination: destinationStripeAccountId,
+      ...(transferGroup ? { transfer_group: transferGroup } : {}),
+      ...(payout.stripeChargeId ? { source_transaction: payout.stripeChargeId } : {}),
       metadata: {
         payoutId: payout.id,
         payoutKind: payout.kind,

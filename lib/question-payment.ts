@@ -2,6 +2,10 @@ import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { createCategoryQuestionNotifications } from "@/lib/notifications";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
+import {
+  buildQuestionTransferGroup,
+  resolveCheckoutChargeId,
+} from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
 type VerifyQuestionCheckoutSessionResult =
@@ -114,6 +118,11 @@ async function finalizeQuestionCheckoutSession(
     };
   }
 
+  const transferGroup = buildQuestionTransferGroup(questionId);
+  const stripe = getStripe();
+  const stripeChargeId = await resolveCheckoutChargeId(stripe, session).catch(
+    () => null
+  );
   const current = await prisma.question.findUnique({
     where: { id: questionId },
     select: {
@@ -145,11 +154,27 @@ async function finalizeQuestionCheckoutSession(
   const existingBySession = sessionId
     ? await prisma.purchase.findUnique({
         where: { stripeSessionId: sessionId },
-        select: { id: true },
+        select: {
+          id: true,
+          stripeChargeId: true,
+          transferGroup: true,
+        },
       })
     : null;
 
   if (existingBySession) {
+    await prisma.purchase.update({
+      where: { id: existingBySession.id },
+      data: {
+        ...(stripeChargeId && !existingBySession.stripeChargeId
+          ? { stripeChargeId }
+          : {}),
+        ...(transferGroup && !existingBySession.transferGroup
+          ? { transferGroup }
+          : {}),
+      },
+    });
+
     return {
       ok: true,
       session,
@@ -167,7 +192,12 @@ async function finalizeQuestionCheckoutSession(
           questionId,
           status: "PAID",
         },
-        select: { id: true, stripeSessionId: true },
+        select: {
+          id: true,
+          stripeSessionId: true,
+          stripeChargeId: true,
+          transferGroup: true,
+        },
       })
     : null;
 
@@ -193,6 +223,8 @@ async function finalizeQuestionCheckoutSession(
           amount: checkoutAmount,
           currency: (session.currency ?? "jpy").toLowerCase(),
           stripeSessionId: sessionId ?? null,
+          stripeChargeId,
+          transferGroup,
           status: "PAID",
         },
       });
@@ -203,6 +235,12 @@ async function finalizeQuestionCheckoutSession(
         where: { id: existingByUser.id },
         data: {
           stripeSessionId: sessionId,
+          ...(stripeChargeId && !existingByUser.stripeChargeId
+            ? { stripeChargeId }
+            : {}),
+          ...(transferGroup && !existingByUser.transferGroup
+            ? { transferGroup }
+            : {}),
         },
       });
     }
