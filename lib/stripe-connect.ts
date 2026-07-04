@@ -7,8 +7,9 @@ type StripeLikeUser = {
 };
 
 const CONNECT_BUSINESS_PROFILE = {
-  url: "https://knowvalue.jp",
-  product_description: "オンラインQ&Aプラットフォームでの回答報酬受取",
+  url: "https://knowvalue.jp/stripe-connect-recipient",
+  product_description:
+    "KnowValue上で、自身の実体験や知識に基づくQ&A回答を提供し、その対価として報酬を受け取ります。",
   // KnowValue はオンライン Q&A/知識共有型のサービスのため、
   // Stripe の MCC は教育・情報提供に近い 8299 を採用する。
   mcc: "8299",

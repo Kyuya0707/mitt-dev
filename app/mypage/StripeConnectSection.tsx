@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import MyPageCard from "./MyPageCard";
 
@@ -82,6 +83,18 @@ export default function StripeConnectSection(
       title="報酬受取設定"
       description="報酬を受け取るには設定が必要です。Stripeで本人確認・口座登録を行ってください。"
     >
+      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+        Stripeでは、KnowValueの運営者ではなく、KnowValue上で回答や知識提供を行い報酬を受け取る利用者として登録してください。
+        <div className="mt-2">
+          <Link
+            href="/stripe-connect-recipient"
+            className="font-medium text-amber-950 underline underline-offset-2"
+          >
+            利用者向けの説明を見る
+          </Link>
+        </div>
+      </div>
+
       {props.connectStatusParam === "return" && (
         <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           受取設定の確認が完了しました。状態が反映されるまで少し時間がかかる場合があります。
