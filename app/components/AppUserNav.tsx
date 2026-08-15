@@ -1,6 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import NotificationBell from "@/app/components/NotificationBell";
 import { getPublicUserDisplayName } from "@/lib/public-user-display";
@@ -21,27 +20,17 @@ export default async function AppUserNav() {
     authUser.user_metadata.avatar_url.trim().length > 0
       ? authUser.user_metadata.avatar_url.trim()
       : "/no-image.svg";
-  const prismaUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    select: {
-      username: true,
-      name: true,
-      email: true,
-    },
-  });
   const displayName = getPublicUserDisplayName(
     {
       username:
-        prismaUser?.username ??
         (typeof authUser.user_metadata?.username === "string"
           ? authUser.user_metadata.username
           : null),
       name:
-        prismaUser?.name ??
         (typeof authUser.user_metadata?.full_name === "string"
           ? authUser.user_metadata.full_name
           : null),
-      email: prismaUser?.email ?? authUser.email ?? null,
+      email: authUser.email ?? null,
     },
     authUser.id
   );

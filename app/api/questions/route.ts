@@ -1,13 +1,20 @@
 // app/api/questions/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { supabaseServer } from "@/lib/supabase-server";
 import { validateViewerPrice } from "@/lib/viewer-price";
 import {
   parseAnswerDeadlineInput,
 } from "@/lib/question-deadline";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
+import {
+  DEFAULT_QUESTION_LIMIT,
+  DEFAULT_QUESTION_PAGE,
+  getQuestionList,
+  MAX_QUESTION_LIMIT,
+  normalizeQuestionDeadlineFilter,
+  parsePositiveInt,
+} from "@/lib/question-list";
 
 // ================================
 // ファイル名を安全に変換（日本語・スペース禁止）
@@ -23,126 +30,11 @@ function safeFileName(originalName: string) {
   );
 }
 
-const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 50;
 const PUBLIC_QUESTION_LIST_CACHE_CONTROL =
   "public, s-maxage=30, stale-while-revalidate=300";
-type DeadlineFilter =
-  | "all"
-  | "has_deadline"
-  | "no_deadline"
-  | "open_deadline"
-  | "expired_deadline";
 
 function getSafeErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "unknown_error";
-}
-
-function parsePositiveInt(value: string | null, fallback: number) {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return fallback;
-  }
-
-  return Math.trunc(parsed);
-}
-
-function buildQuestionListWhere(params: {
-  q: string;
-  categoryId: string;
-  categoryName: string;
-  excludeBest: boolean;
-  deadlineFilter: DeadlineFilter;
-  now: Date;
-}) {
-  const where: Prisma.QuestionWhereInput = {
-    cancellationRequests: {
-      none: {
-        status: "approved",
-      },
-    },
-  };
-
-  if (params.q) {
-    where.OR = [
-      {
-        title: {
-          contains: params.q,
-          mode: "insensitive",
-        },
-      },
-      {
-        content: {
-          contains: params.q,
-          mode: "insensitive",
-        },
-      },
-    ];
-  }
-
-  if (params.categoryId) {
-    where.categoryId = params.categoryId;
-  } else if (params.categoryName) {
-    where.category = {
-      name: params.categoryName,
-    };
-  }
-
-  if (params.excludeBest) {
-    where.bestAnswerId = null;
-  }
-
-  switch (params.deadlineFilter) {
-    case "has_deadline":
-      where.answerDeadline = { not: null };
-      break;
-    case "no_deadline":
-      where.answerDeadline = null;
-      break;
-    case "open_deadline":
-      where.answerDeadline = { gt: params.now };
-      break;
-    case "expired_deadline":
-      where.answerDeadline = { not: null, lte: params.now };
-      break;
-    case "all":
-    default:
-      break;
-  }
-
-  return where;
-}
-
-function buildQuestionListOrderBy(
-  sort: string
-): Prisma.QuestionOrderByWithRelationInput | Prisma.QuestionOrderByWithRelationInput[] {
-  switch (sort) {
-    case "reward":
-      return { rewardAmount: "desc" };
-    case "answers":
-      return { answers: { _count: "desc" } };
-    case "deadline_asc":
-      return [
-        { answerDeadline: { sort: "asc", nulls: "last" } },
-        { createdAt: "desc" },
-      ];
-    case "latest":
-    case "new":
-    default:
-      return { createdAt: "desc" };
-  }
-}
-
-function buildQuestionExcerpt(content: string, maxLength = 120) {
-  const normalized = content.replace(/\s+/g, " ").trim();
-
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, maxLength)}…`;
 }
 
 // ================================
@@ -156,105 +48,44 @@ export async function GET(req: Request) {
     const categoryId = url.searchParams.get("categoryId")?.trim() ?? "";
     const categoryName = url.searchParams.get("category")?.trim() ?? "";
     const sort = url.searchParams.get("sort")?.trim() ?? "latest";
-    const deadlineFilterParam = url.searchParams.get("deadlineFilter")?.trim() ?? "all";
-    const deadlineFilter: DeadlineFilter =
-      deadlineFilterParam === "has_deadline" ||
-      deadlineFilterParam === "no_deadline" ||
-      deadlineFilterParam === "open_deadline" ||
-      deadlineFilterParam === "expired_deadline"
-        ? deadlineFilterParam
-        : "all";
+    const deadlineFilter = normalizeQuestionDeadlineFilter(
+      url.searchParams.get("deadlineFilter")?.trim()
+    );
     const excludeBest =
       url.searchParams.get("excludeBest") === "1" ||
       url.searchParams.get("excludeBest") === "true";
-    const page = parsePositiveInt(url.searchParams.get("page"), DEFAULT_PAGE);
-    const limit = Math.min(
-      parsePositiveInt(url.searchParams.get("limit"), DEFAULT_LIMIT),
-      MAX_LIMIT
+    const page = parsePositiveInt(
+      url.searchParams.get("page"),
+      DEFAULT_QUESTION_PAGE
     );
-    const skip = (page - 1) * limit;
+    const limit = Math.min(
+      parsePositiveInt(url.searchParams.get("limit"), DEFAULT_QUESTION_LIMIT),
+      MAX_QUESTION_LIMIT
+    );
 
-    const where = buildQuestionListWhere({
+    const data = await getQuestionList({
       q,
       categoryId,
       categoryName,
       excludeBest,
       deadlineFilter,
-      now: new Date(),
+      page,
+      limit,
+      sort,
     });
-    const orderBy = buildQuestionListOrderBy(sort);
 
-    const countStart = nowMs();
-    const total = await prisma.question.count({ where });
-    const countDuration = durationMs(countStart);
-    const findManyStart = nowMs();
-    const rawQuestions = await prisma.question.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        rewardAmount: true,
-        viewerPrice: true,
-        answerDeadline: true,
-        createdAt: true,
-        isClosed: true,
-        isPaid: true,
-        bestAnswerId: true,
-        category: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            answers: true,
-          },
-        },
-      },
+    logPerf("questions.GET", {
+      total: `${durationMs(totalStart)}ms`,
+      items: data.items.length,
+      page,
+      limit,
+      sort,
+      deadlineFilter,
     });
-    const findManyDuration = durationMs(findManyStart);
-
-    const items = rawQuestions.map((question) => ({
-      id: question.id,
-      title: question.title,
-      content: buildQuestionExcerpt(question.content),
-      rewardAmount: question.rewardAmount,
-      viewerPrice: question.viewerPrice,
-      answerDeadline: question.answerDeadline,
-      createdAt: question.createdAt,
-      isClosed: question.isClosed,
-      isPaid: question.isPaid,
-      bestAnswerId: question.bestAnswerId,
-      category: question.category,
-      answerCount: question._count.answers,
-    }));
-
-    const totalPages = total === 0 ? 1 : Math.ceil(total / limit);
-
-      logPerf("questions.GET", {
-        total: `${durationMs(totalStart)}ms`,
-        count: `${countDuration}ms`,
-        findMany: `${findManyDuration}ms`,
-        items: items.length,
-        page,
-        limit,
-        sort,
-        deadlineFilter,
-      });
 
     return NextResponse.json(
       {
-        items,
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage: page < totalPages,
+        ...data,
       },
       {
         headers: {

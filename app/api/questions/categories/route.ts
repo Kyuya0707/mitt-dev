@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { sortCategoryNames } from "@/lib/category-options";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
+import { getQuestionCategories } from "@/lib/question-list";
 
 export const revalidate = 3600;
 
@@ -12,14 +11,7 @@ function getSafeErrorMessage(error: unknown) {
 export async function GET() {
   const totalStart = nowMs();
   try {
-    const categories = sortCategoryNames(
-      await prisma.category.findMany({
-        select: {
-          id: true,
-          name: true,
-        },
-      })
-    );
+    const categories = await getQuestionCategories();
 
     logPerf("questions.categories.GET", {
       total: `${durationMs(totalStart)}ms`,

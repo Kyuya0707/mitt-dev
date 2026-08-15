@@ -1,8 +1,8 @@
 // lib/auth.ts
+import { cache } from "react";
 import { supabaseServer } from "./supabase-server";
-import prisma from "@/lib/prisma";
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async function getCurrentUser() {
   const supabase = await supabaseServer(); // ✅ await を付ける
 
   const { data, error } = await supabase.auth.getUser();
@@ -15,4 +15,4 @@ export async function getCurrentUser() {
 
   // 必要ならここで Prisma User 同期（前に書いた処理でOK）
   return supaUser;
-}
+});
