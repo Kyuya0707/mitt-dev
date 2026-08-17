@@ -7,8 +7,6 @@ export type NegotiationStatus =
 export type AnswerUser = {
   id: string;
   username: string | null;
-  name: string | null;
-  email: string;
 };
 
 export type AnswerImage = {

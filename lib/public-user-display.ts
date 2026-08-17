@@ -1,7 +1,5 @@
 type PublicUserLike = {
   username?: string | null;
-  name?: string | null;
-  email?: string | null;
 };
 
 export function getPublicUserDisplayName(
@@ -11,16 +9,6 @@ export function getPublicUserDisplayName(
   const username = user?.username?.trim();
   if (username) {
     return username;
-  }
-
-  const name = user?.name?.trim();
-  if (name) {
-    return name;
-  }
-
-  const emailLocalPart = user?.email?.split("@")[0]?.trim();
-  if (emailLocalPart) {
-    return emailLocalPart;
   }
 
   if (fallbackUserId) {

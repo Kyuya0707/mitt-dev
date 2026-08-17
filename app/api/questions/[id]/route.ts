@@ -1,11 +1,81 @@
 // app/api/questions/[id]/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import type { QuestionAnswer } from "@/app/(app)/questions/[id]/types";
 import { validateViewerPrice } from "@/lib/viewer-price";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 import { parseAnswerDeadlineInput } from "@/lib/question-deadline";
+import { publicUserSelect } from "@/lib/public-user-select";
+
+const publicQuestionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
+  id: true,
+  title: true,
+  content: true,
+  createdAt: true,
+  userId: true,
+  categoryId: true,
+  bestAnswerId: true,
+  isClosed: true,
+  rewardAmount: true,
+  viewerPrice: true,
+  boostCount: true,
+  answerDeadline: true,
+  deadlineAt: true,
+  isPaid: true,
+  category: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  user: {
+    select: publicUserSelect,
+  },
+  images: {
+    select: {
+      id: true,
+      createdAt: true,
+      url: true,
+      sortOrder: true,
+    },
+  },
+  answers: {
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      questionId: true,
+      userId: true,
+      likeCount: true,
+      pitch: true,
+      user: {
+        select: publicUserSelect,
+      },
+      images: {
+        select: {
+          id: true,
+          createdAt: true,
+          url: true,
+          sortOrder: true,
+        },
+      },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          user: {
+            select: publicUserSelect,
+          },
+        },
+      },
+    },
+  },
+});
 
 export async function GET(
   _req: Request,
@@ -18,22 +88,7 @@ export async function GET(
 
     const question = await prisma.question.findUnique({
       where: { id },
-      include: {
-        category: true,
-        user: true,
-        images: true,
-        answers: {
-          include: {
-            user: true,
-            images: true,
-            comments: {
-              include: { user: true },
-              orderBy: { createdAt: "asc" },
-            },
-          },
-          orderBy: { createdAt: "asc" },
-        },
-      },
+      select: publicQuestionDetailSelect,
     });
 
     if (!question) {

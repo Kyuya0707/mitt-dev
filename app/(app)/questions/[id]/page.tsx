@@ -9,6 +9,7 @@ import { verifyQuestionCheckoutSession } from "@/lib/question-payment";
 import { verifyNegotiationCheckoutSession } from "@/lib/negotiation-payment";
 import { getBestViewRevenueBreakdown } from "@/lib/best-view-breakdown";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
+import { publicUserSelect } from "@/lib/public-user-select";
 
 import QuestionImages from "./QuestionImages";
 import QuestionReadClient from "./QuestionReadClient";
@@ -29,13 +30,6 @@ import {
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
-const answerUserSelect = {
-  id: true,
-  email: true,
-  username: true,
-  name: true,
-} as const;
-
 const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
   id: true,
   createdAt: true,
@@ -50,13 +44,15 @@ const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
   answerDeadline: true,
   isPaid: true,
   category: true,
-  user: true,
+  user: {
+    select: publicUserSelect,
+  },
   images: true,
   answers: {
     orderBy: { createdAt: "asc" },
     include: {
       user: {
-        select: answerUserSelect,
+        select: publicUserSelect,
       },
       images: true,
       negotiation: true,
@@ -65,7 +61,7 @@ const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
         orderBy: { createdAt: "asc" },
         include: {
           user: {
-            select: answerUserSelect,
+            select: publicUserSelect,
           },
         },
       },

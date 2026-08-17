@@ -6,6 +6,7 @@ import {
   safeCreateUserNotification,
 } from "@/lib/notifications";
 import { getSafeErrorMessage } from "@/lib/safe-error";
+import { publicUserSelect } from "@/lib/public-user-select";
 
 export async function POST(req: Request) {
   try {
@@ -70,8 +71,13 @@ export async function POST(req: Request) {
         answerId,
         userId: user.id,
       },
-      include: {
-        user: true, // コメントしたユーザー情報も返す
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        user: {
+          select: publicUserSelect,
+        },
       },
     });
 

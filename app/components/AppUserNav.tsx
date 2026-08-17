@@ -26,11 +26,6 @@ export default async function AppUserNav() {
         (typeof authUser.user_metadata?.username === "string"
           ? authUser.user_metadata.username
           : null),
-      name:
-        (typeof authUser.user_metadata?.full_name === "string"
-          ? authUser.user_metadata.full_name
-          : null),
-      email: authUser.email ?? null,
     },
     authUser.id
   );
