@@ -5,6 +5,8 @@ import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import { getBaseUrl } from "@/lib/site-url";
 import { buildBestViewTransferGroup } from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
+import { validateViewerPrice } from "@/lib/viewer-price";
+import { getUserMutationRestriction } from "@/lib/user-access";
 
 export const runtime = "nodejs";
 
@@ -13,6 +15,10 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "ログインしてください" }, { status: 401 });
+    }
+    const restriction = await getUserMutationRestriction(user.id);
+    if (restriction) {
+      return NextResponse.json({ error: restriction }, { status: 403 });
     }
 
     try {
@@ -92,17 +98,20 @@ export async function POST(req: Request) {
     }
 
     const amount = Number(answer.question.viewerPrice);
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const viewerPriceValidation = validateViewerPrice(amount);
+    if (!viewerPriceValidation.ok) {
       return NextResponse.json(
-        { error: "この質問はBEST閲覧価格が未設定のため、購入できません" },
+        { error: viewerPriceValidation.message },
         { status: 400 }
       );
     }
+    const normalizedAmount = viewerPriceValidation.value;
 
     const existingPurchase = await prisma.purchase.findFirst({
       where: {
         userId: user.id,
         questionId: answer.questionId,
+        kind: "best_view",
         status: "PAID",
       },
       select: { id: true },
@@ -146,7 +155,7 @@ export async function POST(req: Request) {
           price_data: {
             currency: "jpy",
             product_data: { name: "KnowValue BEST回答の閲覧" },
-            unit_amount: Math.round(amount),
+            unit_amount: normalizedAmount,
           },
           quantity: 1,
         },
@@ -161,7 +170,7 @@ export async function POST(req: Request) {
           typeof metadata.username === "string" ? metadata.username : "",
         buyerName:
           typeof metadata.full_name === "string" ? metadata.full_name : "",
-        amount: String(Math.round(amount)),
+        amount: String(normalizedAmount),
       },
       success_url: `${baseUrl}/questions/${answer.questionId}?best_view_paid=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/questions/${answer.questionId}?best_view_cancel=1`,

@@ -51,6 +51,15 @@ export async function GET(request: Request) {
         typeof metadata.full_name === "string" ? metadata.full_name : undefined,
       ageGroup: isAgeGroup(metadata.age_group) ? metadata.age_group : undefined,
       gender: isGender(metadata.gender) ? metadata.gender : undefined,
+      bio: typeof metadata.bio === "string" ? metadata.bio : undefined,
+      experienceCategory:
+        typeof metadata.experience_category === "string"
+          ? metadata.experience_category
+          : undefined,
+      experienceYears:
+        typeof metadata.experience_years === "number"
+          ? metadata.experience_years
+          : undefined,
       interests: Array.isArray(metadata.interests)
         ? metadata.interests.filter(
             (value): value is string => typeof value === "string"
@@ -63,6 +72,10 @@ export async function GET(request: Request) {
       ppConsentVersion:
         typeof metadata.pp_consent_version === "string"
           ? metadata.pp_consent_version
+          : null,
+      ageConfirmedAt:
+        typeof metadata.age_confirmed_at === "string"
+          ? new Date(metadata.age_confirmed_at)
           : null,
     });
     ensureDuration = durationMs(ensureStart);

@@ -3,20 +3,20 @@ import prisma from "@/lib/prisma";
 import { getCurrentUserAdminStatus } from "@/lib/admin";
 
 export async function GET() {
-  const { user, isAdmin } = await getCurrentUserAdminStatus();
+  const { user, canManageAccounting } = await getCurrentUserAdminStatus();
 
   if (!user) {
     return NextResponse.json({ error: "ログインしてください" }, { status: 401 });
   }
 
-  if (!isAdmin) {
+  if (!canManageAccounting) {
     return NextResponse.json({ error: "管理者のみ利用できます" }, { status: 403 });
   }
 
   const payouts = await prisma.payout.findMany({
     where: {
       status: {
-        in: ["pending", "failed", "processing"],
+        in: ["pending", "scheduled", "failed", "processing"],
       },
     },
     orderBy: { createdAt: "desc" },

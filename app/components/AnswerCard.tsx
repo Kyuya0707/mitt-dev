@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-export default function AnswerCard({ ans, isBest, questionId }: any) {
+type AnswerCardProps = {
+  ans: { id: string; createdAt: string | Date; content: string };
+  isBest: boolean;
+  questionId?: string;
+};
+
+export default function AnswerCard({ ans, isBest }: AnswerCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [likes, setLikes] = useState(
     Number(localStorage.getItem(`like-${ans.id}`) || 0)

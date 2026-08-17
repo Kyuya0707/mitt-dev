@@ -7,13 +7,13 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { user, isAdmin } = await getCurrentUserAdminStatus();
+  const { user, canManageOperations } = await getCurrentUserAdminStatus();
 
   if (!user) {
     return NextResponse.json({ error: "ログインしてください" }, { status: 401 });
   }
 
-  if (!isAdmin) {
+  if (!canManageOperations) {
     return NextResponse.json({ error: "管理者のみ利用できます" }, { status: 403 });
   }
 
@@ -73,6 +73,18 @@ export async function POST(
       { status: 409 }
     );
   }
+
+  await prisma.eventLog.create({
+    data: {
+      type: "cancellation_request_rejected",
+      payload: {
+        cancellationRequestId: requestRecord.id,
+        questionId: requestRecord.question.id,
+        reviewedById: user.id,
+        adminNote: body.adminNote?.trim() || null,
+      },
+    },
+  });
 
   if (requestRecord.requester.email) {
     void sendCancellationRejectedEmail({

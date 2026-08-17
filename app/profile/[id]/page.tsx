@@ -1,93 +1,100 @@
-// app/profile/[id]/page.tsx
-
-import { createClientBrowser } from "@/lib/supabase-browser";
-import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
+import prisma from "@/lib/prisma";
+import { getPublicUserDisplayName } from "@/lib/public-user-display";
 
 export default async function UserProfilePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  // ★ async Cookie API を await する
-  const cookieStore = await cookies();
-  const supabase = createClientBrowser();
+  const { id } = await params;
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      username: true,
+      bio: true,
+      experienceCategory: true,
+      experienceYears: true,
+      deletedAt: true,
+      trustScore: true,
+      rank: true,
+      stripeConnectOnboardingCompleted: true,
+      answers: {
+        select: {
+          id: true,
+          _count: {
+            select: { likes: true },
+          },
+        },
+      },
+    },
+  });
 
-  const { data, error } = await supabase.auth.admin.getUserById(params.id);
-
-  if (error || !data?.user) {
-    return (
-      <div className="text-center mt-20">
-        ユーザーが見つかりません。
-      </div>
-    );
+  if (!user) {
+    notFound();
   }
 
-  const meta = data.user.user_metadata;
+  const answerIds = user.answers.map((answer) => answer.id);
+  const bestCount =
+    answerIds.length > 0
+      ? await prisma.question.count({
+          where: { bestAnswerId: { in: answerIds } },
+        })
+      : 0;
+  const helpfulCount = user.answers.reduce(
+    (total, answer) => total + answer._count.likes,
+    0
+  );
+  const nickname = getPublicUserDisplayName(user, user.id);
 
   return (
-    <div className="max-w-xl mx-auto mt-10 bg-white shadow p-6 rounded-lg">
-
-      {/* アイコン */}
-      <div className="flex justify-center mb-4">
-        <div className="w-28 h-28 rounded-full overflow-hidden bg-gray-200">
-          {meta.avatar_url ? (
-            <img
-              src={meta.avatar_url}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              No Image
-            </div>
-          )}
-        </div>
+    <main className="mx-auto mt-10 max-w-xl rounded-xl border border-gray-200 bg-white p-6 text-black shadow-sm">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <h1 className="text-center text-2xl font-bold">{nickname}</h1>
+        {user.stripeConnectOnboardingCompleted && (
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
+            本人確認済み
+          </span>
+        )}
       </div>
 
-      {/* ユーザー名 */}
-      <h1 className="text-2xl font-bold text-center mb-2">{meta.username}</h1>
-
-      {meta.prefecture && meta.prefecture !== "未選択" && (
-        <p className="text-center text-gray-600 mb-4">{meta.prefecture}</p>
-      )}
-
-      {/* 自己紹介 */}
-      {meta.bio && (
-        <div className="mb-4">
-          <h2 className="font-semibold mb-1">自己紹介</h2>
-          <p className="text-gray-700 whitespace-pre-line">{meta.bio}</p>
-        </div>
-      )}
-
-      {/* 興味カテゴリー */}
-      {meta.interests && meta.interests.length > 0 && (
-        <div className="mb-4">
-          <h2 className="font-semibold mb-2">興味カテゴリー</h2>
-          <div className="flex flex-wrap gap-2">
-            {meta.interests.map((item: string) => (
-              <span
-                key={item}
-                className="px-3 py-1 bg-blue-600 text-white rounded-full text-sm"
-              >
-                {item}
-              </span>
-            ))}
+      <dl className="mt-6 grid gap-3 sm:grid-cols-2">
+        {user.bio && (
+          <div className="rounded-lg bg-gray-50 p-4 sm:col-span-2">
+            <dt className="text-sm text-gray-500">自己紹介</dt>
+            <dd className="mt-1 whitespace-pre-wrap text-sm">{user.bio}</dd>
           </div>
+        )}
+        {user.experienceCategory && (
+          <div className="rounded-lg bg-gray-50 p-4">
+            <dt className="text-sm text-gray-500">経験カテゴリ</dt>
+            <dd className="mt-1 font-semibold">{user.experienceCategory}</dd>
+          </div>
+        )}
+        {user.experienceYears !== null && (
+          <div className="rounded-lg bg-gray-50 p-4">
+            <dt className="text-sm text-gray-500">経験年数</dt>
+            <dd className="mt-1 font-semibold">{user.experienceYears}年</dd>
+          </div>
+        )}
+        <div className="rounded-lg bg-gray-50 p-4">
+          <dt className="text-sm text-gray-500">BEST回答数</dt>
+          <dd className="mt-1 text-xl font-bold">{bestCount}</dd>
         </div>
-      )}
-
-      {/* SNS / Webサイト */}
-      {meta.website && (
-        <div className="mt-4">
-          <h2 className="font-semibold mb-1">SNS / Webサイト</h2>
-          <a
-            href={meta.website}
-            target="_blank"
-            className="text-blue-600 underline break-all"
-          >
-            {meta.website}
-          </a>
+        <div className="rounded-lg bg-gray-50 p-4">
+          <dt className="text-sm text-gray-500">参考になった数</dt>
+          <dd className="mt-1 text-xl font-bold">{helpfulCount}</dd>
         </div>
-      )}
-    </div>
+        <div className="rounded-lg bg-gray-50 p-4">
+          <dt className="text-sm text-gray-500">信頼スコア</dt>
+          <dd className="mt-1 text-xl font-bold">{user.trustScore}</dd>
+        </div>
+        <div className="rounded-lg bg-gray-50 p-4">
+          <dt className="text-sm text-gray-500">ランク</dt>
+          <dd className="mt-1 text-xl font-bold">{user.rank}</dd>
+        </div>
+      </dl>
+    </main>
   );
 }

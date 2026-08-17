@@ -53,6 +53,7 @@ export default function CancellationRequestCard({
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
         message?: string;
+        autoApproved?: boolean;
       };
 
       if (!res.ok) {
@@ -62,7 +63,7 @@ export default function CancellationRequestCard({
         return;
       }
 
-      setCurrentStatus("pending");
+      setCurrentStatus(data.autoApproved ? "approved" : "pending");
       setMessage(data.message ?? "キャンセル申請を受け付けました。");
     } catch (requestError) {
       setError(
@@ -83,7 +84,7 @@ export default function CancellationRequestCard({
         {answerDeadline
           ? "回答期限を過ぎると、キャンセル申請ができます。"
           : "回答期限を設定していない場合は、投稿から2週間後にキャンセル申請ができます。"}{" "}
-        申請後、運営が内容を確認し、承認された場合に返金処理を行います。
+        回答がない場合は自動承認し、回答がある場合は運営が内容を確認します。承認時は質問報酬のみ返金します。
       </p>
 
       {currentStatus === "pending" ? (

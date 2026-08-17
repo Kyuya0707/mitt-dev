@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { MAX_INTEREST_CATEGORIES } from "@/lib/category-options";
 import { ensureNotificationPreference } from "@/lib/notifications";
 import {
   buildFallbackUsernameCandidates,
@@ -14,6 +15,10 @@ type EnsurePrismaUserInput = {
   interests?: string[] | null;
   ageGroup?: string | null;
   gender?: string | null;
+  bio?: string | null;
+  experienceCategory?: string | null;
+  experienceYears?: number | null;
+  ageConfirmedAt?: Date | null;
   ppConsentAt?: Date | null;
   ppConsentVersion?: string | null;
 };
@@ -200,13 +205,22 @@ export async function ensurePrismaUser({
   interests,
   ageGroup,
   gender,
+  bio,
+  experienceCategory,
+  experienceYears,
+  ageConfirmedAt,
   ppConsentAt,
   ppConsentVersion,
 }: EnsurePrismaUserInput) {
   const normalizedEmail = typeof email === "string" ? email.trim() : "";
   const normalizedName = typeof name === "string" ? name.trim() : "";
-  const normalizedInterests = Array.isArray(interests)
-    ? interests.filter((item): item is string => typeof item === "string")
+  const requestedInterests = Array.isArray(interests)
+    ? [...new Set(
+        interests
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )]
     : [];
   const normalizedAgeGroup =
     typeof ageGroup === "string" && ageGroup.trim().length > 0
@@ -215,6 +229,15 @@ export async function ensurePrismaUser({
   const normalizedGender =
     typeof gender === "string" && gender.trim().length > 0
       ? gender.trim()
+      : undefined;
+  const normalizedBio = typeof bio === "string" ? bio.trim().slice(0, 1000) : undefined;
+  const normalizedExperienceCategory =
+    typeof experienceCategory === "string"
+      ? experienceCategory.trim().slice(0, 100)
+      : undefined;
+  const normalizedExperienceYears =
+    typeof experienceYears === "number" && Number.isInteger(experienceYears)
+      ? Math.min(80, Math.max(0, experienceYears))
       : undefined;
 
   const existingUser = await prisma.user.findUnique({
@@ -228,6 +251,11 @@ export async function ensurePrismaUser({
       interestCategories: true,
       ageGroup: true,
       gender: true,
+      bio: true,
+      experienceCategory: true,
+      experienceYears: true,
+      deletedAt: true,
+      ageConfirmedAt: true,
       ppConsentAt: true,
       ppConsentVersion: true,
       notificationPreference: {
@@ -239,6 +267,13 @@ export async function ensurePrismaUser({
   });
 
   if (existingUser) {
+    if (existingUser.deletedAt) {
+      throw buildTaggedError("ACCOUNT_DELETED", "このアカウントは退会済みです");
+    }
+    const normalizedInterests =
+      requestedInterests.length > MAX_INTEREST_CATEGORIES
+        ? existingUser.interestCategories
+        : requestedInterests;
     const requestedUsername =
       typeof username === "string" && username.trim().length > 0
         ? username.trim()
@@ -261,11 +296,21 @@ export async function ensurePrismaUser({
       existingUser.ageGroup !== normalizedAgeGroup;
     const genderChanged =
       normalizedGender !== undefined && existingUser.gender !== normalizedGender;
+    const bioChanged = normalizedBio !== undefined && existingUser.bio !== normalizedBio;
+    const experienceCategoryChanged =
+      normalizedExperienceCategory !== undefined &&
+      existingUser.experienceCategory !== normalizedExperienceCategory;
+    const experienceYearsChanged =
+      normalizedExperienceYears !== undefined &&
+      existingUser.experienceYears !== normalizedExperienceYears;
     const consentChanged = Boolean(
       ppConsentAt && !areDatesEqual(existingUser.ppConsentAt, ppConsentAt)
     );
     const consentVersionChanged = Boolean(
       ppConsentVersion && existingUser.ppConsentVersion !== ppConsentVersion
+    );
+    const ageConfirmationChanged = Boolean(
+      ageConfirmedAt && !areDatesEqual(existingUser.ageConfirmedAt, ageConfirmedAt)
     );
     const needsUpdate =
       shouldResolveUsername ||
@@ -274,6 +319,10 @@ export async function ensurePrismaUser({
       interestsChanged ||
       ageGroupChanged ||
       genderChanged ||
+      bioChanged ||
+      experienceCategoryChanged ||
+      experienceYearsChanged ||
+      ageConfirmationChanged ||
       consentChanged ||
       consentVersionChanged;
 
@@ -327,6 +376,14 @@ export async function ensurePrismaUser({
             : {}),
           ...(ageGroupChanged ? { ageGroup: normalizedAgeGroup } : {}),
           ...(genderChanged ? { gender: normalizedGender } : {}),
+          ...(bioChanged ? { bio: normalizedBio } : {}),
+          ...(experienceCategoryChanged
+            ? { experienceCategory: normalizedExperienceCategory }
+            : {}),
+          ...(experienceYearsChanged
+            ? { experienceYears: normalizedExperienceYears }
+            : {}),
+          ...(ageConfirmationChanged ? { ageConfirmedAt } : {}),
           ...(nameChanged ? { name: normalizedName } : {}),
           ...(consentChanged ? { ppConsentAt } : {}),
           ...(consentVersionChanged ? { ppConsentVersion } : {}),
@@ -370,10 +427,18 @@ export async function ensurePrismaUser({
       id,
       email: normalizedEmail,
       username: resolvedUsername,
-      interestCategories: normalizedInterests,
+      interestCategories: requestedInterests.slice(0, MAX_INTEREST_CATEGORIES),
       ...(normalizedName ? { name: normalizedName } : {}),
       ...(normalizedAgeGroup ? { ageGroup: normalizedAgeGroup } : {}),
       ...(normalizedGender ? { gender: normalizedGender } : {}),
+      ...(normalizedBio !== undefined ? { bio: normalizedBio } : {}),
+      ...(normalizedExperienceCategory
+        ? { experienceCategory: normalizedExperienceCategory }
+        : {}),
+      ...(normalizedExperienceYears !== undefined
+        ? { experienceYears: normalizedExperienceYears }
+        : {}),
+      ...(ageConfirmedAt ? { ageConfirmedAt } : {}),
       ...(ppConsentAt ? { ppConsentAt } : {}),
       ...(ppConsentVersion ? { ppConsentVersion } : {}),
     },

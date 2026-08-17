@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MAX_ANSWER_DEADLINE_DAYS,
+  MIN_ANSWER_DEADLINE_DAYS,
   formatJapaneseDateTime,
+  getMinimumAnswerDeadline,
   toDatetimeLocalValue,
 } from "@/lib/question-deadline";
 
@@ -47,6 +49,12 @@ export default function AnswerDeadlineEditor({
     const now = new Date();
     const deadlineDate = rawValue ? new Date(rawValue) : null;
 
+    if (!rawValue) {
+      setError("回答期限を入力してください");
+      setSaving(false);
+      return;
+    }
+
     if (rawValue) {
       if (Number.isNaN(deadlineDate?.getTime() ?? Number.NaN)) {
         setError("回答期限の形式が正しくありません");
@@ -56,6 +64,36 @@ export default function AnswerDeadlineEditor({
 
       if ((deadlineDate?.getTime() ?? 0) <= now.getTime()) {
         setError("回答期限は現在時刻より後で設定してください");
+        setSaving(false);
+        return;
+      }
+
+      const currentDeadline = initialAnswerDeadline
+        ? new Date(initialAnswerDeadline)
+        : null;
+
+      if (currentDeadline && currentDeadline.getTime() <= now.getTime()) {
+        setError("回答期限を過ぎた質問は期限を変更できません");
+        setSaving(false);
+        return;
+      }
+
+      if (
+        currentDeadline &&
+        (deadlineDate?.getTime() ?? 0) <= currentDeadline.getTime()
+      ) {
+        setError("回答期限は現在の期限より後へ延長してください");
+        setSaving(false);
+        return;
+      }
+
+      if (
+        !currentDeadline &&
+        (deadlineDate?.getTime() ?? 0) < getMinimumAnswerDeadline(now).getTime()
+      ) {
+        setError(
+          `回答期限は${MIN_ANSWER_DEADLINE_DAYS}日後以降で設定してください`
+        );
         setSaving(false);
         return;
       }
@@ -76,7 +114,7 @@ export default function AnswerDeadlineEditor({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          answerDeadline: rawValue || null,
+          answerDeadline: rawValue,
         }),
       });
 
@@ -100,15 +138,11 @@ export default function AnswerDeadlineEditor({
     }
   };
 
-  const handleClear = () => {
-    setAnswerDeadline("");
-  };
-
   return (
     <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
       <div className="font-semibold text-gray-900">回答期限を変更</div>
       <p className="mt-1 text-xs leading-6 text-gray-500">
-        期限を過ぎるとキャンセル申請が可能になります。未設定の場合は、投稿から2週間後にキャンセル申請できます。
+        期限前に限り、現在の期限より後へ延長できます。期限の短縮・削除はできません。
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
@@ -116,7 +150,11 @@ export default function AnswerDeadlineEditor({
           className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-black sm:max-w-sm"
           value={answerDeadline}
           onChange={(event) => setAnswerDeadline(event.target.value)}
-          min={toDatetimeLocalValue(new Date())}
+          min={toDatetimeLocalValue(
+            initialAnswerDeadline
+              ? new Date(new Date(initialAnswerDeadline).getTime() + 60_000)
+              : getMinimumAnswerDeadline()
+          )}
           max={toDatetimeLocalValue(
             new Date(Date.now() + MAX_ANSWER_DEADLINE_DAYS * 24 * 60 * 60 * 1000)
           )}
@@ -128,13 +166,6 @@ export default function AnswerDeadlineEditor({
           className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
         >
           {saving ? "保存中..." : "変更する"}
-        </button>
-        <button
-          type="button"
-          onClick={handleClear}
-          className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-        >
-          回答期限なし
         </button>
       </div>
       <p className="mt-2 text-xs text-gray-500">現在の回答期限：{currentLabel}</p>

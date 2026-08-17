@@ -4,7 +4,7 @@ import AdminNav from "../AdminNav";
 import AdminCancellationRequestsTable from "./AdminCancellationRequestsTable";
 
 export default async function AdminCancellationRequestsPage() {
-  const { user, isAdmin } = await getCurrentUserAdminStatus();
+  const { user, canManageOperations } = await getCurrentUserAdminStatus();
 
   if (!user) {
     return (
@@ -19,7 +19,7 @@ export default async function AdminCancellationRequestsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canManageOperations) {
     return (
       <div className="min-h-screen bg-white text-black">
         <AppHeader />

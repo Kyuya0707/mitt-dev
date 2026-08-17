@@ -1,6 +1,5 @@
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
-import { sendAdminPayoutNotification } from "@/lib/admin-notifications";
 import {
   NOTIFICATION_TYPES,
   safeCreateUserNotification,
@@ -11,7 +10,7 @@ import {
 } from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
-type VerifyNegotiationCheckoutSessionResult =
+type Result =
   | {
       ok: true;
       session: Stripe.Checkout.Session;
@@ -31,90 +30,59 @@ type VerifyNegotiationCheckoutSessionResult =
         | "session_mismatch"
         | "invalid_kind"
         | "negotiation_not_found"
+        | "amount_mismatch"
         | "stripe_error";
     };
 
-type VerifyNegotiationCheckoutSessionInput =
-  | {
-      questionId: string;
-      sessionId?: string | null;
-      session?: never;
-    }
-  | {
-      questionId?: string;
-      sessionId?: never;
-      session: Stripe.Checkout.Session;
-    };
+type Input =
+  | { questionId: string; sessionId?: string | null; session?: never }
+  | { questionId?: string; sessionId?: never; session: Stripe.Checkout.Session };
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
-
-  if (!key) {
-    throw new Error("STRIPE_SECRET_KEY is not set");
-  }
-
+  if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
   return new Stripe(key);
 }
 
-function isUniqueConstraintError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "P2002"
-  );
-}
-
-export async function verifyNegotiationCheckoutSession(
-  input: VerifyNegotiationCheckoutSessionInput
-): Promise<VerifyNegotiationCheckoutSessionResult> {
+export async function verifyNegotiationCheckoutSession(input: Input): Promise<Result> {
   if ("session" in input && input.session) {
-    return finalizeNegotiationCheckoutSession(input.session, input.questionId);
+    return finalize(input.session, input.questionId);
   }
-
-  if (!input.sessionId) {
-    return { ok: false, reason: "missing_session_id" };
-  }
-
+  if (!input.sessionId) return { ok: false, reason: "missing_session_id" };
   if (!process.env.STRIPE_SECRET_KEY) {
     return { ok: false, reason: "stripe_not_configured" };
   }
 
   try {
-    const stripe = getStripe();
-    const session = await stripe.checkout.sessions.retrieve(input.sessionId);
-    return finalizeNegotiationCheckoutSession(session, input.questionId);
-  } catch (error: unknown) {
+    const session = await getStripe().checkout.sessions.retrieve(input.sessionId);
+    return finalize(session, input.questionId);
+  } catch (error) {
     if (
       error instanceof Stripe.errors.StripeInvalidRequestError &&
       error.code === "resource_missing"
     ) {
       return { ok: false, reason: "session_not_found" };
     }
-
-    console.error("❌ verifyNegotiationCheckoutSession error:", {
+    console.error("verifyNegotiationCheckoutSession failed", {
       message: getSafeErrorMessage(error),
     });
     return { ok: false, reason: "stripe_error" };
   }
 }
 
-async function finalizeNegotiationCheckoutSession(
+async function finalize(
   session: Stripe.Checkout.Session,
   expectedQuestionId?: string
-): Promise<VerifyNegotiationCheckoutSessionResult> {
-  const negotiationId = session.metadata?.negotiationId;
-  const questionId = session.metadata?.questionId;
-
+): Promise<Result> {
   if (session.metadata?.kind !== "negotiation_accept") {
     return { ok: false, reason: "invalid_kind" };
   }
-
+  const negotiationId = session.metadata.negotiationId;
+  const questionId = session.metadata.questionId;
   if (!negotiationId || !questionId) {
     return { ok: false, reason: "missing_metadata" };
   }
-
-  if (expectedQuestionId && questionId !== expectedQuestionId) {
+  if (expectedQuestionId && expectedQuestionId !== questionId) {
     return { ok: false, reason: "session_mismatch" };
   }
 
@@ -125,35 +93,21 @@ async function finalizeNegotiationCheckoutSession(
       questionId: true,
       status: true,
       proposedAmount: true,
-      answer: {
-        select: {
-          id: true,
-          userId: true,
-          user: {
-            select: {
-              username: true,
-              email: true,
-              stripeAccountId: true,
-            },
-          },
-        },
-      },
-      question: {
-        select: {
-          title: true,
-          rewardAmount: true,
-        },
-      },
+      answer: { select: { id: true, userId: true } },
+      question: { select: { title: true, userId: true, isClosed: true } },
     },
   });
-
-  if (!negotiation || negotiation.questionId !== questionId) {
+  if (
+    !negotiation ||
+    negotiation.questionId !== questionId ||
+    !negotiation.answer.userId ||
+    !negotiation.question.userId ||
+    negotiation.question.isClosed
+  ) {
     return { ok: false, reason: "negotiation_not_found" };
   }
 
-  const isPaid = session.payment_status === "paid";
-
-  if (!isPaid) {
+  if (session.payment_status !== "paid") {
     return {
       ok: true,
       session,
@@ -165,182 +119,88 @@ async function finalizeNegotiationCheckoutSession(
     };
   }
 
-  const rewardAmount = Math.round(Number(negotiation.question?.rewardAmount));
-  const proposedAmount = Math.round(Number(negotiation.proposedAmount));
-  const chargedAmount = proposedAmount - rewardAmount;
-
-  if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) {
-    return { ok: false, reason: "stripe_error" };
+  const existingPurchase = await prisma.purchase.findUnique({
+    where: { stripeSessionId: session.id },
+    select: { id: true },
+  });
+  if (existingPurchase) {
+    return {
+      ok: true,
+      session,
+      negotiationId,
+      questionId,
+      isPaid: true,
+      alreadyAccepted: true,
+      updatedNegotiation: false,
+    };
   }
 
-  if (!Number.isFinite(proposedAmount) || proposedAmount <= 0) {
-    return { ok: false, reason: "stripe_error" };
+  if (negotiation.status !== "PENDING") {
+    return { ok: false, reason: "negotiation_not_found" };
   }
 
-  if (!Number.isFinite(chargedAmount) || chargedAmount <= 0) {
-    return { ok: false, reason: "stripe_error" };
+  const additionalReward = negotiation.proposedAmount;
+  const platformFee = Math.floor(additionalReward * 0.1);
+  const checkoutAmount = additionalReward + platformFee;
+  if (session.amount_total !== checkoutAmount) {
+    return { ok: false, reason: "amount_mismatch" };
   }
 
-  const transferGroup = buildNegotiationTransferGroup(negotiationId);
   const stripe = getStripe();
   const stripeChargeId = await resolveCheckoutChargeId(stripe, session).catch(
     () => null
   );
-  const answerUserId = negotiation.answer?.userId;
+  const transferGroup = buildNegotiationTransferGroup(negotiationId);
+  const acceptedAt = new Date(session.created * 1000);
+  const answerDueAt = new Date(acceptedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  if (!answerUserId) {
-    return { ok: false, reason: "negotiation_not_found" };
-  }
+  const updated = await prisma.$transaction(async (tx) => {
+    const accepted = await tx.negotiation.updateMany({
+      where: { id: negotiationId, status: "PENDING" },
+      data: { status: "ACCEPTED", acceptedAt, answerDueAt },
+    });
+    if (accepted.count === 0) return false;
 
-  const createdNegotiation = await prisma.$transaction(async (tx) => {
-    const updatedNegotiation = await tx.negotiation.update({
-      where: { id: negotiationId },
-        data: { status: "ACCEPTED" },
-        select: {
-          id: true,
-          questionId: true,
-          status: true,
-        answer: {
-          select: {
-            id: true,
-            userId: true,
-            user: {
-              select: {
-                username: true,
-                email: true,
-                stripeAccountId: true,
-              },
-            },
-          },
-        },
-        question: {
-          select: {
-            title: true,
-          },
+    await tx.purchase.create({
+      data: {
+        userId: negotiation.question.userId!,
+        questionId,
+        kind: "negotiation_accept",
+        negotiationId,
+        amount: checkoutAmount,
+        currency: (session.currency ?? "jpy").toLowerCase(),
+        stripeSessionId: session.id,
+        stripeChargeId,
+        transferGroup,
+        status: "PAID",
+      },
+    });
+    await tx.eventLog.create({
+      data: {
+        type: "negotiation_accepted_paid",
+        payload: {
+          negotiationId,
+          questionId,
+          answerId: negotiation.answer.id,
+          additionalReward,
+          platformFee,
+          checkoutAmount,
+          answerDueAt: answerDueAt.toISOString(),
         },
       },
     });
-
-    const payoutUserId = updatedNegotiation.answer.userId;
-
-    if (!payoutUserId) {
-      throw new Error("Negotiation answer user is missing");
-    }
-
-    try {
-      const createdPayout = await tx.payout.create({
-        data: {
-          userId: payoutUserId,
-          questionId,
-          answerId: updatedNegotiation.answer.id,
-          negotiationId,
-          kind: "negotiation_reward",
-          description: "交渉追加報酬",
-          grossAmount: chargedAmount,
-          platformFeeAmount: 0,
-          netAmount: chargedAmount,
-          amount: chargedAmount,
-          currency: "jpy",
-          status: "pending",
-          stripeAccountId:
-            updatedNegotiation.answer.user?.stripeAccountId ?? null,
-          stripeChargeId,
-          transferGroup,
-        },
-        select: {
-          id: true,
-          amount: true,
-          user: {
-            select: {
-              username: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      return {
-        created: true as const,
-        negotiation: updatedNegotiation,
-        payout: createdPayout,
-        answerUserId: payoutUserId,
-      };
-    } catch (error) {
-      if (!isUniqueConstraintError(error)) {
-        throw error;
-      }
-
-      const existingPayout = await tx.payout.findUnique({
-        where: { negotiationId },
-        select: {
-          id: true,
-          amount: true,
-          stripeChargeId: true,
-          transferGroup: true,
-          user: {
-            select: {
-              username: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      if (!existingPayout) {
-        throw error;
-      }
-
-      if (
-        (stripeChargeId && !existingPayout.stripeChargeId) ||
-        (transferGroup && !existingPayout.transferGroup)
-      ) {
-        await tx.payout.update({
-          where: { id: existingPayout.id },
-          data: {
-            ...(stripeChargeId && !existingPayout.stripeChargeId
-              ? { stripeChargeId }
-              : {}),
-            ...(transferGroup && !existingPayout.transferGroup
-              ? { transferGroup }
-              : {}),
-          },
-        });
-      }
-
-      return {
-        created: false as const,
-        negotiation: updatedNegotiation,
-        payout: existingPayout,
-        answerUserId: payoutUserId,
-      };
-    }
+    return true;
   });
 
-  if (createdNegotiation.created) {
+  if (updated) {
     await safeCreateUserNotification({
-      userId: createdNegotiation.answerUserId,
+      userId: negotiation.answer.userId,
       type: NOTIFICATION_TYPES.NEGOTIATION_ACCEPTED,
-      message: `あなたの交渉提案が承認されました: ${createdNegotiation.negotiation.question?.title ?? "質問"}`,
+      message: `追加報酬${additionalReward.toLocaleString("ja-JP")}円の提案が承認されました。7日以内に「${negotiation.question.title}」へ回答を投稿してください。`,
       url: `/questions/${questionId}?from=notification`,
-      data: {
-        questionId,
-        answerId: createdNegotiation.negotiation.answer.id,
-        negotiationId,
-      },
+      data: { questionId, answerId: negotiation.answer.id, negotiationId },
       context: "negotiation_accepted",
     });
-
-    if (createdNegotiation.payout) {
-      await sendAdminPayoutNotification({
-        payoutType: "negotiation_reward",
-        amount: createdNegotiation.payout.amount,
-        recipientName: createdNegotiation.payout.user?.username ?? undefined,
-        recipientEmail: createdNegotiation.payout.user?.email,
-        questionId,
-        answerId: createdNegotiation.negotiation.answer.id,
-        adminPath: "/admin/payouts",
-      });
-    }
   }
 
   return {
@@ -350,6 +210,6 @@ async function finalizeNegotiationCheckoutSession(
     questionId,
     isPaid: true,
     alreadyAccepted: false,
-    updatedNegotiation: true,
+    updatedNegotiation: updated,
   };
 }

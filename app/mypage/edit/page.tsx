@@ -5,7 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
-import { CATEGORY_NAMES } from "@/lib/category-options";
+import {
+  CATEGORY_NAMES,
+  MAX_INTEREST_CATEGORIES,
+} from "@/lib/category-options";
 import {
   AGE_GROUP_OPTIONS,
   GENDER_OPTIONS,
@@ -33,7 +36,8 @@ type Meta = {
   age_group?: string;
   gender?: string;
   bio?: string;
-  website?: string;
+  experience_category?: string;
+  experience_years?: number;
   prefecture?: string;
   interests?: string[];
   avatar_url?: string;
@@ -52,7 +56,8 @@ export default function MyPageEdit() {
   const [ageGroup, setAgeGroup] = useState("回答しない");
   const [gender, setGender] = useState("回答しない");
   const [bio, setBio] = useState("");
-  const [website, setWebsite] = useState("");
+  const [experienceCategory, setExperienceCategory] = useState("");
+  const [experienceYears, setExperienceYears] = useState(0);
   const [prefecture, setPrefecture] = useState("未選択");
   const [interests, setInterests] = useState<string[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -88,7 +93,8 @@ export default function MyPageEdit() {
       setAgeGroup(isAgeGroup(meta.age_group) ? meta.age_group : "回答しない");
       setGender(isGender(meta.gender) ? meta.gender : "回答しない");
       setBio(meta.bio ?? "");
-      setWebsite(meta.website ?? "");
+      setExperienceCategory(meta.experience_category ?? "");
+      setExperienceYears(meta.experience_years ?? 0);
       setPrefecture(meta.prefecture ?? "未選択");
       setInterests(Array.isArray(meta.interests) ? meta.interests : []);
       setAvatarUrl(meta.avatar_url ?? null);
@@ -102,7 +108,11 @@ export default function MyPageEdit() {
 
   const toggleInterest = (item: string) => {
     setInterests((prev) =>
-      prev.includes(item) ? prev.filter((v) => v !== item) : [...prev, item]
+      prev.includes(item)
+        ? prev.filter((v) => v !== item)
+        : prev.length < MAX_INTEREST_CATEGORIES
+          ? [...prev, item]
+          : prev
     );
   };
 
@@ -182,7 +192,9 @@ export default function MyPageEdit() {
           age_group: ageGroup,
           gender,
           bio,
-          website,
+          website: null,
+          experience_category: experienceCategory,
+          experience_years: experienceYears,
           prefecture,
           interests,
           avatar_url: newAvatarUrl,
@@ -204,6 +216,9 @@ export default function MyPageEdit() {
           name: fullName,
           ageGroup,
           gender,
+          bio,
+          experienceCategory,
+          experienceYears,
           interests,
         }),
       });
@@ -357,36 +372,58 @@ export default function MyPageEdit() {
           />
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-semibold">経験カテゴリ</label>
+            <select
+              value={experienceCategory}
+              onChange={(e) => setExperienceCategory(e.target.value)}
+              className="w-full rounded-xl border p-2"
+            >
+              <option value="">未設定</option>
+              {CATEGORY_NAMES.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold">経験年数</label>
+            <input
+              type="number"
+              min={0}
+              max={80}
+              value={experienceYears}
+              onChange={(e) => setExperienceYears(Number(e.target.value))}
+              className="w-full rounded-xl border p-2"
+            />
+          </div>
+        </div>
+
         {/* 興味 */}
         <div>
-          <label className="block text-sm font-semibold mb-2">興味カテゴリー（複数選択）</label>
+          <label className="block text-sm font-semibold mb-2">
+            興味カテゴリー（最大{MAX_INTEREST_CATEGORIES}件）
+          </label>
           <div className="flex flex-wrap gap-2">
             {INTEREST_OPTIONS.map((item) => (
               <button
                 key={item}
                 type="button"
                 onClick={() => toggleInterest(item)}
+                disabled={
+                  !interests.includes(item) &&
+                  interests.length >= MAX_INTEREST_CATEGORIES
+                }
                 className={`rounded-full border px-3 py-1 text-sm ${
                   interests.includes(item)
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700"
+                    : "bg-gray-100 text-gray-700 disabled:opacity-40"
                 }`}
               >
                 {item}
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Web */}
-        <div>
-          <label className="block text-sm font-semibold mb-1">SNS / Webサイト</label>
-          <input
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-            className="w-full rounded-xl border p-2"
-            placeholder="https://"
-          />
         </div>
 
         {/* 地域 */}

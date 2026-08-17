@@ -25,6 +25,30 @@ enum ReportReason {
   ABUSE
   AI_CONTENT
   FALSE_INFORMATION
+  FINANCIAL_ADVICE
+  FRAUD_FALSE
+  HARASSMENT
+  COPYRIGHT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+}
+
+enum SanctionType {
+  WARNING
+  SUSPEND_7_DAYS
+  SUSPEND_30_DAYS
+  PERMANENT
+}
+
+enum AppealStatus {
+  PENDING
+  UPHELD
+  OVERTURNED
 }
 
 enum CancellationRequestStatus {
@@ -34,15 +58,20 @@ enum CancellationRequestStatus {
 }
 
 model User {
-  id                 String   @id
-  email              String   @unique
-  displayId          String?  @unique
-  username           String?  @unique
+  id                 String    @id
+  email              String    @unique
+  displayId          String?   @unique
+  username           String?   @unique
   name               String?
-  createdAt          DateTime @default(now())
-  interestCategories String[] @default([])
+  createdAt          DateTime  @default(now())
+  interestCategories String[]  @default([])
   ageGroup           String?
   gender             String?
+  ageConfirmedAt     DateTime?
+  bio                String?
+  experienceCategory String?
+  experienceYears    Int?
+  deletedAt          DateTime?
 
   consentAt DateTime?
 
@@ -56,9 +85,11 @@ model User {
   stripeConnectRequirementsCurrentlyDue  Json?
   stripeConnectRequirementsEventuallyDue Json?
   stripeConnectDisabledReason            String?
+  suspendedUntil                         DateTime?
+  permanentlySuspendedAt                 DateTime?
 
   trustScore Int    @default(50)
-  rank       String @default("WHITE")
+  rank       String @default("SILVER")
 
   questions                    Question[]
   answers                      Answer[]
@@ -73,8 +104,17 @@ model User {
   notifications          Notification[]
   notificationPreference NotificationPreference?
 
-  answerLikes AnswerLike[]
-  reports     Report[]
+  answerLikes            AnswerLike[]
+  reportsMade            Report[]        @relation("ReportReporter")
+  reportsReceived        Report[]        @relation("ReportTargetOwner")
+  reportsReviewed        Report[]        @relation("ReportReviewer")
+  sanctions              Sanction[]      @relation("SanctionTarget")
+  sanctionsIssued        Sanction[]      @relation("SanctionReviewer")
+  appeals                Appeal[]        @relation("AppealUser")
+  appealsReviewed        Appeal[]        @relation("AppealReviewer")
+  payoutBatches          PayoutBatch[]
+  supportTickets         SupportTicket[] @relation("SupportTicketRequester")
+  supportTicketsAssigned SupportTicket[] @relation("SupportTicketAssignee")
 }
 
 model Category {
@@ -109,7 +149,9 @@ model Question {
 
   viewerPrice Int?
 
-  boostCount Int @default(0)
+  boostCount     Int       @default(0)
+  boostedAt      DateTime?
+  boostExpiresAt DateTime?
 
   answerDeadline DateTime?
   deadlineAt     DateTime?
@@ -122,8 +164,13 @@ model Question {
   reports Report[]
 
   cancellationRequests CancellationRequest[]
+  supplements          QuestionSupplement[]
 
   isPaid Boolean @default(false)
+
+  rewardPeriodStartedAt DateTime?
+  rewardExpiresAt       DateTime?
+  rewardStoppedAt       DateTime?
 
   @@index([createdAt])
   @@index([userId, createdAt])
@@ -132,6 +179,20 @@ model Question {
   @@index([bestAnswerId])
   @@index([answerDeadline])
   @@index([isClosed, answerDeadline])
+  @@index([isClosed, rewardExpiresAt])
+  @@index([boostExpiresAt, createdAt])
+}
+
+model QuestionSupplement {
+  id         String   @id @default(cuid())
+  questionId String
+  authorId   String
+  content    String
+  createdAt  DateTime @default(now())
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, createdAt])
 }
 
 model Answer {
@@ -162,6 +223,7 @@ model Answer {
   reports Report[]
   payouts Payout[] @relation("AnswerPayouts")
 
+  @@unique([questionId, userId])
   @@index([questionId, createdAt])
   @@index([userId, createdAt])
 }
@@ -219,8 +281,9 @@ model Comment {
   answerId String
   answer   Answer @relation(fields: [answerId], references: [id])
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  userId  String
+  user    User     @relation(fields: [userId], references: [id])
+  reports Report[]
 }
 
 model Negotiation {
@@ -233,9 +296,14 @@ model Negotiation {
 
   expectedDays Int?
 
-  status NegotiationStatus @default(PENDING)
+  status         NegotiationStatus @default(PENDING)
+  acceptedAt     DateTime?
+  answerDueAt    DateTime?
+  submittedAt    DateTime?
+  stripeRefundId String?
 
-  payout Payout? @relation("NegotiationPayout")
+  payout   Payout?   @relation("NegotiationPayout")
+  purchase Purchase? @relation("NegotiationPurchase")
 
   answer Answer @relation(fields: [answerId], references: [id])
 
@@ -243,6 +311,7 @@ model Negotiation {
   question   Question @relation(fields: [questionId], references: [id])
 
   @@index([questionId, status])
+  @@index([status, answerDueAt])
 }
 
 model Purchase {
@@ -258,6 +327,8 @@ model Purchase {
 
   amount Int
 
+  kind String @default("question_post")
+
   currency String @default("jpy")
 
   stripeSessionId String? @unique
@@ -268,8 +339,12 @@ model Purchase {
 
   bestViewRevenueShare BestViewRevenueShare?
 
+  negotiationId String?      @unique
+  negotiation   Negotiation? @relation("NegotiationPurchase", fields: [negotiationId], references: [id])
+
   @@index([userId, createdAt])
   @@index([userId, questionId, status])
+  @@index([userId, questionId, kind, status])
   @@index([stripeChargeId])
   @@index([transferGroup])
 }
@@ -321,9 +396,10 @@ model BestViewPayout {
   stripeAccountId  String?
   stripeChargeId   String?
   transferGroup    String?
-  stripeTransferId String?   @unique
+  stripeTransferId String?          @unique
   transferredAt    DateTime?
   failureReason    String?
+  batchItem        PayoutBatchItem?
 
   @@unique([revenueShareId, recipientType])
   @@index([stripeChargeId])
@@ -332,6 +408,7 @@ model BestViewPayout {
 
 model Notification {
   id        String    @id @default(cuid())
+  dedupeKey String?   @unique
   userId    String
   type      String
   message   String
@@ -359,6 +436,7 @@ model NotificationPreference {
   emailOnNegotiationAccepted     Boolean @default(true)
   emailOnNegotiationRejected     Boolean @default(true)
   emailOnCategoryQuestionCreated Boolean @default(true)
+  emailOnQuestionSupplement      Boolean @default(true)
   emailOnLogin                   Boolean @default(true)
 
   user User @relation(fields: [userId], references: [id])
@@ -389,18 +467,52 @@ model Payout {
   platformFeeAmount Int?
   netAmount         Int?
   amount            Int
-  currency          String    @default("jpy")
+  currency          String           @default("jpy")
   status            String
   stripeAccountId   String?
   stripeChargeId    String?
   transferGroup     String?
-  stripeTransferId  String?   @unique
+  stripeTransferId  String?          @unique
   transferredAt     DateTime?
   failureReason     String?
+  batchItem         PayoutBatchItem?
 
   @@unique([answerId, kind])
   @@index([stripeChargeId])
   @@index([transferGroup])
+}
+
+model PayoutBatch {
+  id               String            @id @default(cuid())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  periodKey        String
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  amount           Int
+  currency         String            @default("jpy")
+  status           String            @default("scheduled")
+  stripeAccountId  String?
+  stripeTransferId String?           @unique
+  transferredAt    DateTime?
+  failureReason    String?
+  items            PayoutBatchItem[]
+
+  @@unique([userId, periodKey])
+  @@index([status, createdAt])
+}
+
+model PayoutBatchItem {
+  id               String          @id @default(cuid())
+  batchId          String
+  batch            PayoutBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  amount           Int
+  payoutId         String?         @unique
+  payout           Payout?         @relation(fields: [payoutId], references: [id])
+  bestViewPayoutId String?         @unique
+  bestViewPayout   BestViewPayout? @relation(fields: [bestViewPayoutId], references: [id])
+
+  @@index([batchId])
 }
 
 model CancellationRequest {
@@ -431,18 +543,111 @@ model EventLog {
   payload   Json
 }
 
+model SupportTicket {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  category     String
+  subject      String
+  message      String
+  status       String   @default("OPEN")
+  adminNote    String?
+  requesterId  String
+  requester    User     @relation("SupportTicketRequester", fields: [requesterId], references: [id])
+  assignedToId String?
+  assignedTo   User?    @relation("SupportTicketAssignee", fields: [assignedToId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([requesterId, createdAt])
+}
+
 model Report {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  reason ReportReason
+  reason  ReportReason
+  details String?
+  status  ReportStatus @default(PENDING)
 
   reporterId String
-  reporter   User   @relation(fields: [reporterId], references: [id])
+  reporter   User   @relation("ReportReporter", fields: [reporterId], references: [id])
+
+  targetOwnerId String
+  targetOwner   User   @relation("ReportTargetOwner", fields: [targetOwnerId], references: [id])
+
+  reviewedAt     DateTime?
+  reviewedById   String?
+  reviewedBy     User?     @relation("ReportReviewer", fields: [reviewedById], references: [id])
+  resolutionNote String?
 
   answerId String?
   answer   Answer? @relation(fields: [answerId], references: [id])
 
   questionId String?
   question   Question? @relation(fields: [questionId], references: [id])
+
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id])
+
+  sanction Sanction?
+
+  @@index([status, createdAt])
+  @@index([targetOwnerId, createdAt])
+}
+
+model Sanction {
+  id        String       @id @default(cuid())
+  createdAt DateTime     @default(now())
+  type      SanctionType
+  reason    String
+  startsAt  DateTime     @default(now())
+  endsAt    DateTime?
+  revokedAt DateTime?
+
+  targetUserId String
+  targetUser   User   @relation("SanctionTarget", fields: [targetUserId], references: [id])
+
+  reviewedById String
+  reviewedBy   User   @relation("SanctionReviewer", fields: [reviewedById], references: [id])
+
+  sourceReportId String? @unique
+  sourceReport   Report? @relation(fields: [sourceReportId], references: [id])
+
+  appeals Appeal[]
+
+  @@index([targetUserId, createdAt])
+}
+
+model Appeal {
+  id         String       @id @default(cuid())
+  createdAt  DateTime     @default(now())
+  evidence   String
+  status     AppealStatus @default(PENDING)
+  reviewedAt DateTime?
+  reviewNote String?
+
+  sanctionId String
+  sanction   Sanction @relation(fields: [sanctionId], references: [id])
+
+  userId String
+  user   User   @relation("AppealUser", fields: [userId], references: [id])
+
+  reviewedById String?
+  reviewedBy   User?   @relation("AppealReviewer", fields: [reviewedById], references: [id])
+
+  @@index([sanctionId, createdAt])
+  @@index([status, createdAt])
+}
+
+model TrustScoreHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  score     Int
+  rank      String
+  dayKey    String
+  factors   Json
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dayKey])
+  @@index([userId, createdAt])
 }

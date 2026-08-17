@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MAX_VIEWER_PRICE_JPY } from "@/lib/viewer-price";
+import {
+  MAX_VIEWER_PRICE_JPY,
+  MIN_VIEWER_PRICE_JPY,
+} from "@/lib/viewer-price";
 
 type ViewerPriceEditorProps = {
   questionId: string;
@@ -25,8 +28,14 @@ export default function ViewerPriceEditor({
     setMessage(null);
     setError(null);
 
-    if (!Number.isFinite(viewerPrice) || !Number.isInteger(viewerPrice) || viewerPrice < 1) {
-      setError("BEST閲覧価格は1円以上の整数で入力してください");
+    if (
+      !Number.isFinite(viewerPrice) ||
+      !Number.isInteger(viewerPrice) ||
+      viewerPrice < MIN_VIEWER_PRICE_JPY
+    ) {
+      setError(
+        `BEST閲覧価格は${MIN_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円以上の整数で入力してください`
+      );
       setSaving(false);
       return;
     }
@@ -67,7 +76,7 @@ export default function ViewerPriceEditor({
           className="border rounded px-3 py-2 w-full sm:w-56"
           value={viewerPrice}
           onChange={(e) => setViewerPrice(Number(e.target.value))}
-          min={1}
+          min={MIN_VIEWER_PRICE_JPY}
           max={MAX_VIEWER_PRICE_JPY}
           step={1}
           required
@@ -82,7 +91,8 @@ export default function ViewerPriceEditor({
         </button>
       </div>
       <p className="text-xs text-gray-500 mt-2">
-        1円〜{MAX_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円で設定できます。
+        {MIN_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円〜
+        {MAX_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円で設定できます。
       </p>
       {message && <p className="text-sm text-green-700 mt-2">{message}</p>}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}

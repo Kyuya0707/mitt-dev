@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/site-url";
 import { buildNegotiationTransferGroup } from "@/lib/stripe-connect-transfer";
 import { getSafeErrorMessage } from "@/lib/safe-error";
+import { getUserMutationRestriction } from "@/lib/user-access";
 
 export const runtime = "nodejs"; // Stripe/PrismaはNodeランタイム想定
 
@@ -16,6 +17,10 @@ export async function POST(req: Request) {
         { error: "ログインしてください" },
         { status: 401 }
       );
+    }
+    const restriction = await getUserMutationRestriction(currentUser.id);
+    if (restriction) {
+      return NextResponse.json({ error: restriction }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -60,8 +65,13 @@ export async function POST(req: Request) {
         questionId: true,
         question: {
           select: {
-            rewardAmount: true,
             userId: true,
+            isClosed: true,
+            cancellationRequests: {
+              where: { status: "approved" },
+              select: { id: true },
+              take: 1,
+            },
           },
         },
         answer: {
@@ -84,6 +94,16 @@ export async function POST(req: Request) {
       );
     }
 
+    if (
+      negotiation.question.isClosed ||
+      negotiation.question.cancellationRequests.length > 0
+    ) {
+      return NextResponse.json(
+        { error: "受付終了または非公開の質問では交渉を承認できません" },
+        { status: 400 }
+      );
+    }
+
     if (negotiation.status !== "PENDING") {
       return NextResponse.json(
         { error: "This negotiation is not pending" },
@@ -92,21 +112,12 @@ export async function POST(req: Request) {
     }
 
     const proposedAmount = Math.round(Number(negotiation.proposedAmount));
-    const originalRewardAmount = Math.round(
-      Number(negotiation.question?.rewardAmount)
-    );
-    const chargedAmount = proposedAmount - originalRewardAmount;
+    const platformFeeAmount = Math.floor(proposedAmount * 0.1);
+    const chargedAmount = proposedAmount + platformFeeAmount;
 
     if (!Number.isFinite(proposedAmount) || proposedAmount <= 0) {
       return NextResponse.json(
         { error: "Invalid proposedAmount" },
-        { status: 400 }
-      );
-    }
-
-    if (!Number.isFinite(originalRewardAmount) || originalRewardAmount <= 0) {
-      return NextResponse.json(
-        { error: "Invalid originalRewardAmount" },
         { status: 400 }
       );
     }
@@ -147,8 +158,8 @@ export async function POST(req: Request) {
         negotiationId,
         questionId,
         answerId,
-        originalRewardAmount: String(originalRewardAmount),
-        proposedAmount: String(proposedAmount),
+        additionalRewardAmount: String(proposedAmount),
+        platformFeeAmount: String(platformFeeAmount),
         chargedAmount: String(chargedAmount),
       },
       success_url: `${baseUrl}/questions/${questionId}?negotiation_paid=1&session_id={CHECKOUT_SESSION_ID}`,

@@ -4,13 +4,13 @@ import { getCurrentUserAdminStatus } from "@/lib/admin";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 
 export async function GET() {
-  const { user, isAdmin } = await getCurrentUserAdminStatus();
+  const { user, canManageOperations } = await getCurrentUserAdminStatus();
 
   if (!user) {
     return NextResponse.json({ error: "ログインしてください" }, { status: 401 });
   }
 
-  if (!isAdmin) {
+  if (!canManageOperations) {
     return NextResponse.json({ error: "管理者のみ利用できます" }, { status: 403 });
   }
 

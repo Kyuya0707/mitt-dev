@@ -4,7 +4,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
-import { CATEGORY_NAMES } from "@/lib/category-options";
+import {
+  CATEGORY_NAMES,
+  MAX_INTEREST_CATEGORIES,
+} from "@/lib/category-options";
 import {
   AGE_GROUP_OPTIONS,
   GENDER_OPTIONS,
@@ -82,6 +85,7 @@ type SignupDraft = {
   interests: string[];
   legalAgreed: boolean;
   ppAgreed: boolean;
+  ageConfirmed: boolean;
 };
 
 function getInitialSignupDraft(): SignupDraft {
@@ -99,6 +103,7 @@ function getInitialSignupDraft(): SignupDraft {
       interests: [],
       legalAgreed: false,
       ppAgreed: false,
+      ageConfirmed: false,
     };
   }
 
@@ -122,6 +127,7 @@ function getInitialSignupDraft(): SignupDraft {
       interests: Array.isArray(draft.interests) ? draft.interests : [],
       legalAgreed: Boolean(draft.legalAgreed),
       ppAgreed: Boolean(draft.ppAgreed),
+      ageConfirmed: Boolean(draft.ageConfirmed),
     };
   } catch {
     return {
@@ -137,6 +143,7 @@ function getInitialSignupDraft(): SignupDraft {
       interests: [],
       legalAgreed: false,
       ppAgreed: false,
+      ageConfirmed: false,
     };
   }
 }
@@ -220,6 +227,7 @@ export default function SignupPage() {
   const [ppAgreed, setPpAgreed] = useState(initialDraft.ppAgreed);
   const [ppOpen, setPpOpen] = useState(false);
   const [legalAgreed, setLegalAgreed] = useState(initialDraft.legalAgreed);
+  const [ageConfirmed, setAgeConfirmed] = useState(initialDraft.ageConfirmed);
   const [loading, setLoading] = useState(false);
   const [signupCompletedEmail, setSignupCompletedEmail] = useState("");
   const [signupPhase, setSignupPhase] = useState<
@@ -240,6 +248,7 @@ export default function SignupPage() {
       interests,
       legalAgreed,
       ppAgreed,
+      ageConfirmed,
     }),
     [
       email,
@@ -254,6 +263,7 @@ export default function SignupPage() {
       interests,
       legalAgreed,
       ppAgreed,
+      ageConfirmed,
     ]
   );
 
@@ -279,7 +289,11 @@ export default function SignupPage() {
   // カテゴリーのチェック変更
   const toggleInterest = (item: string) => {
     setInterests((prev) =>
-      prev.includes(item) ? prev.filter((v) => v !== item) : [...prev, item]
+      prev.includes(item)
+        ? prev.filter((v) => v !== item)
+        : prev.length < MAX_INTEREST_CATEGORIES
+          ? [...prev, item]
+          : prev
     );
   };
 
@@ -302,6 +316,13 @@ export default function SignupPage() {
     
     if (!legalAgreed) {
       setErrorMsg("利用規約とプライバシーポリシーへの同意が必要です。");
+      setLoading(false);
+      setSignupPhase("idle");
+      return;
+    }
+
+    if (!ageConfirmed) {
+      setErrorMsg("KnowValueは18歳以上の方のみ利用できます。");
       setLoading(false);
       setSignupPhase("idle");
       return;
@@ -385,6 +406,7 @@ export default function SignupPage() {
           avatar_url: avatarUrl,
           pp_consent_at: new Date().toISOString(),
           pp_consent_version: PP_CONSENT_VERSION,
+          age_confirmed_at: new Date().toISOString(),
         },
       },
     });
@@ -578,7 +600,7 @@ export default function SignupPage() {
         {/* 興味カテゴリー */}
         <div>
           <label className="block text-gray-700 mb-2">
-            興味カテゴリー（複数選択）
+            興味カテゴリー（最大{MAX_INTEREST_CATEGORIES}件）
           </label>
 
           <div className="flex flex-wrap gap-2">
@@ -587,10 +609,14 @@ export default function SignupPage() {
                 key={item}
                 type="button"
                 onClick={() => toggleInterest(item)}
+                disabled={
+                  !interests.includes(item) &&
+                  interests.length >= MAX_INTEREST_CATEGORIES
+                }
                 className={`px-3 py-1 rounded-full border ${
                   interests.includes(item)
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700"
+                    : "bg-gray-100 text-gray-700 disabled:opacity-40"
                 }`}
               >
                 {item}
@@ -624,6 +650,21 @@ export default function SignupPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="rounded border p-3 bg-gray-50">
+          <div className="flex items-start gap-2">
+            <input
+              id="age-confirmation"
+              type="checkbox"
+              className="mt-1"
+              checked={ageConfirmed}
+              onChange={(e) => setAgeConfirmed(e.target.checked)}
+            />
+            <label htmlFor="age-confirmation" className="text-sm text-gray-700">
+              私は18歳以上です（必須）
+            </label>
+          </div>
         </div>
 
         <div className="rounded border p-3 bg-gray-50">
@@ -686,7 +727,7 @@ export default function SignupPage() {
 
         <button
           type="submit"
-          disabled={loading || !legalAgreed || !ppAgreed}
+          disabled={loading || !ageConfirmed || !legalAgreed || !ppAgreed}
           className="w-full rounded bg-blue-600 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? "登録中..." : "登録する"}

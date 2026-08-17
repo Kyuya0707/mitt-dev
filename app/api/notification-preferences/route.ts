@@ -35,7 +35,8 @@ export async function PUT(req: Request) {
       emailOnCategoryQuestionCreated: Boolean(
         body.emailOnCategoryQuestionCreated
       ),
-      emailOnLogin: Boolean(body.emailOnLogin),
+      emailOnQuestionSupplement: Boolean(body.emailOnQuestionSupplement),
+      emailOnLogin: true,
     },
     create: {
       userId: user.id,
@@ -48,7 +49,8 @@ export async function PUT(req: Request) {
       emailOnCategoryQuestionCreated: Boolean(
         body.emailOnCategoryQuestionCreated
       ),
-      emailOnLogin: Boolean(body.emailOnLogin),
+      emailOnQuestionSupplement: Boolean(body.emailOnQuestionSupplement),
+      emailOnLogin: true,
     },
   });
 

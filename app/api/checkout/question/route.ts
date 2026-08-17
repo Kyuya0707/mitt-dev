@@ -7,6 +7,7 @@ import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import { getBaseUrl } from "@/lib/site-url";
 import { buildQuestionTransferGroup } from "@/lib/stripe-connect-transfer";
 import { durationMs, logPerf, nowMs } from "@/lib/perf";
+import { getUserMutationRestriction } from "@/lib/user-access";
 
 export const runtime = "nodejs"; // Stripe/Prismaなので明示（Edge回避）
 
@@ -36,6 +37,10 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
+    const restriction = await getUserMutationRestriction(currentUser.id);
+    if (restriction) {
+      return NextResponse.json({ error: restriction }, { status: 403 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const questionId = body.questionId as string | undefined;
@@ -51,9 +56,21 @@ export async function POST(req: Request) {
 
     // ✅ DBから rewardAmount を取得（改ざん防止）
     const questionLookupStart = nowMs();
-    const q = await prisma.question.findUnique({
-      where: { id: questionId },
-      select: { id: true, rewardAmount: true, userId: true, isPaid: true },
+    const q = await prisma.question.findFirst({
+      where: {
+        id: questionId,
+        cancellationRequests: { none: { status: "approved" } },
+      },
+      select: {
+        id: true,
+        rewardAmount: true,
+        userId: true,
+        isPaid: true,
+        isClosed: true,
+        bestAnswerId: true,
+        rewardExpiresAt: true,
+        rewardStoppedAt: true,
+      },
     });
     const questionLookupDuration = durationMs(questionLookupStart);
 
@@ -68,7 +85,15 @@ export async function POST(req: Request) {
       );
     }
 
-    if (q.isPaid) {
+    const canRestartReward =
+      q.isPaid &&
+      q.isClosed &&
+      !q.bestAnswerId &&
+      !!q.rewardStoppedAt &&
+      !!q.rewardExpiresAt &&
+      q.rewardExpiresAt <= new Date();
+
+    if (q.isPaid && !canRestartReward) {
       return NextResponse.json(
         { error: "この質問はすでに決済済みです" },
         { status: 400 }
@@ -115,6 +140,7 @@ export async function POST(req: Request) {
         rewardAmount: String(q.rewardAmount),
         platformFeeAmount: String(rewardBreakdown.platformFeeAmount),
         checkoutAmount: String(amount),
+        rewardRenewal: canRestartReward ? "true" : "false",
       },
       success_url: `${baseUrl}/questions/${questionId}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/questions/${questionId}?cancel=1`,

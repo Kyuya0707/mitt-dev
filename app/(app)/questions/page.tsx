@@ -30,6 +30,12 @@ export default async function QuestionsPage({
   );
   const excludeBestParam = firstValue(params.excludeBest);
   const excludeBest = excludeBestParam === "1" || excludeBestParam === "true";
+  const minRewardText = firstValue(params.minReward);
+  const maxRewardText = firstValue(params.maxReward);
+  const minRewardRaw = Number(minRewardText);
+  const maxRewardRaw = Number(maxRewardText);
+  const minReward = minRewardText && Number.isInteger(minRewardRaw) && minRewardRaw >= 0 ? minRewardRaw : null;
+  const maxReward = maxRewardText && Number.isInteger(maxRewardRaw) && maxRewardRaw >= 0 ? maxRewardRaw : null;
 
   const [initialData, initialCategories] = await Promise.all([
     getQuestionList({
@@ -39,6 +45,8 @@ export default async function QuestionsPage({
       sort,
       deadlineFilter,
       excludeBest,
+      minReward,
+      maxReward,
       page: DEFAULT_QUESTION_PAGE,
       limit: DEFAULT_QUESTION_LIMIT,
     }),
@@ -55,6 +63,8 @@ export default async function QuestionsPage({
         sort,
         deadlineFilter,
         excludeBestSelected: excludeBest,
+        minReward: minReward === null ? "" : String(minReward),
+        maxReward: maxReward === null ? "" : String(maxReward),
       }}
     />
   );

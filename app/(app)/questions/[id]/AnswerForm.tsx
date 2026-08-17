@@ -4,6 +4,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ReactSortable } from "react-sortablejs";
 import { trackGA4AnswerPosted } from "@/lib/ga";
+import {
+  ACCEPTED_UPLOAD_IMAGE_TYPES,
+  MAX_UPLOAD_IMAGE_BYTES,
+  MAX_UPLOAD_IMAGE_COUNT,
+} from "@/lib/image-constraints";
 
 export default function AnswerForm({
   questionId,
@@ -33,12 +38,12 @@ export default function AnswerForm({
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [consentSaving, setConsentSaving] = useState(false);
+  const [noAiConfirmed, setNoAiConfirmed] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [agree, setAgree] = useState(!!ppConsentAt);
 
-  const MAX_IMAGES = 5;
   const loginRedirectTo = `/login?redirectTo=${encodeURIComponent(answerPagePath)}`;
 
   useEffect(() => {
@@ -89,8 +94,18 @@ export default function AnswerForm({
   const handleImageAdd = (e: ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []) as File[];
 
-    if (imageItems.length + selected.length > MAX_IMAGES) {
-      setErrorMsg(`画像は最大 ${MAX_IMAGES} 枚までです`);
+    if (imageItems.length + selected.length > MAX_UPLOAD_IMAGE_COUNT) {
+      setErrorMsg(`画像は最大${MAX_UPLOAD_IMAGE_COUNT}枚までです`);
+      return;
+    }
+
+    const invalidFile = selected.find(
+      (file) =>
+        !(ACCEPTED_UPLOAD_IMAGE_TYPES as readonly string[]).includes(file.type) ||
+        file.size > MAX_UPLOAD_IMAGE_BYTES
+    );
+    if (invalidFile) {
+      setErrorMsg("画像は5MB以下のJPEG・PNG・WebPを選択してください");
       return;
     }
 
@@ -138,26 +153,25 @@ export default function AnswerForm({
         setLoading(false);
         return;
       }
-    }
-
-    // 本文は任意にしておく（後で「交渉形式のみ」に寄せられる）
-    if (!content.trim()) {
-      // content を必須にしたいならここをONに
-      // setErrorMsg("回答内容を入力してください");
-      // setLoading(false);
-      // return;
+    } else if (!content.trim() && imageItems.length === 0) {
+      setErrorMsg("回答本文または画像を入力してください");
+      setLoading(false);
+      return;
     }
 
     const formData = new FormData();
-    formData.append("content", content);
+    formData.append("content", hasNegotiation ? "" : content);
     formData.append("questionId", questionId);
+    formData.append("noAiConfirmed", String(noAiConfirmed));
 
     if (hasNegotiation) {
       formData.append("pitch", trimmedPitch);
       formData.append("proposedAmount", trimmedProposedAmount);
     }
 
-    imageItems.forEach((item) => formData.append("images", item.file));
+    if (!hasNegotiation) {
+      imageItems.forEach((item) => formData.append("images", item.file));
+    }
 
     const res = await fetch("/api/answers", {
       method: "POST",
@@ -268,7 +282,7 @@ export default function AnswerForm({
         {isNegotiationOpen && (
           <div className="space-y-4 rounded-lg border border-blue-100 bg-white p-4">
             <div>
-              <label className="block text-sm font-medium mb-1">提案金額（円）</label>
+              <label className="block text-sm font-medium mb-1">追加報酬の提案額（円）</label>
               <input
                 type="number"
                 min={100}
@@ -277,7 +291,7 @@ export default function AnswerForm({
                 onChange={(e) => setProposedAmount(e.target.value)}
               />
               <p className="text-xs text-gray-500 mt-1">
-                通常報酬とは別条件を提案したい時だけ入力します。
+                承認時、質問者は提案額とその10%の利用料を支払います。回答投稿後、提案額の90%が追加報酬になります。
               </p>
             </div>
 
@@ -295,26 +309,28 @@ export default function AnswerForm({
           </div>
         )}
 
-        {/* 本文（任意） */}
-        <div>
-          <label className="block text-sm font-medium mb-1">本文（任意）</label>
-          <textarea
-            ref={textareaRef}
-            className="w-full border rounded p-3 h-32 text-gray-900"
-            placeholder="（任意）購入後に読ませたい本文を先に書いてもOK"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-        </div>
+        {!isNegotiationOpen && (
+          <div>
+            <label className="block text-sm font-medium mb-1">回答本文</label>
+            <textarea
+              ref={textareaRef}
+              className="w-full border rounded p-3 h-32 text-gray-900"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </div>
+        )}
 
         {/* 画像 */}
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          className="text-gray-900"
-          onChange={handleImageAdd}
-        />
+        {!isNegotiationOpen && (
+          <input
+            type="file"
+            accept={ACCEPTED_UPLOAD_IMAGE_TYPES.join(",")}
+            multiple
+            className="text-gray-900"
+            onChange={handleImageAdd}
+          />
+        )}
 
         {imageItems.length > 0 && (
           <ReactSortable list={imageItems} setList={setImageItems}>
@@ -339,13 +355,30 @@ export default function AnswerForm({
           </ReactSortable>
         )}
 
+        <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={noAiConfirmed}
+            onChange={(event) => setNoAiConfirmed(event.target.checked)}
+            required
+            className="mt-1"
+          />
+          <span>
+            投稿内容にAIによる生成・要約・翻訳・校正・編集を使用していません。
+          </span>
+        </label>
+
         {errorMsg && <p className="text-red-500">{errorMsg}</p>}
 
         <button
-          disabled={loading}
+          disabled={loading || !noAiConfirmed}
           className="bg-blue-600 text-white px-4 py-2 rounded w-full disabled:opacity-60"
         >
-          {loading ? "投稿中…" : "回答を投稿"}
+          {loading
+            ? "送信中…"
+            : isNegotiationOpen
+              ? "追加報酬を提案"
+              : "回答を投稿"}
         </button>
       </form>
     </div>

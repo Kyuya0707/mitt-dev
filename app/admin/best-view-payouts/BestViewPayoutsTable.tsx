@@ -46,6 +46,8 @@ function getStatusLabel(status: string) {
       return "未送金";
     case "processing":
       return "処理中";
+    case "scheduled":
+      return "月次振込予定";
     case "paid":
       return "送金済み";
     case "failed":
@@ -60,7 +62,7 @@ function getRecipientTypeLabel(recipientType: string) {
     case "question_owner":
       return "質問者";
     case "answer_owner":
-      return "旧仕様の回答者分";
+      return "BEST回答者";
     default:
       return recipientType;
   }
@@ -175,15 +177,7 @@ export default function BestViewPayoutsTable() {
               payout.recipientUser.username ||
               payout.recipientUser.email ||
               payout.recipientUser.id;
-            const destinationStripeAccountId =
-              payout.stripeAccountId ?? payout.recipientUser.stripeAccountId;
-            const canTransfer =
-              Boolean(destinationStripeAccountId) &&
-              payout.recipientUser.stripeConnectPayoutsEnabled &&
-              payout.recipientUser.stripeConnectDetailsSubmitted &&
-              payout.status !== "processing" &&
-              payout.status !== "paid" &&
-              !payout.stripeTransferId;
+            const canTransfer = false;
 
             return (
               <div
@@ -255,6 +249,10 @@ export default function BestViewPayoutsTable() {
                     {formatYen(payout.revenueShare.questionOwnerAmount)}
                   </p>
                   <p>
+                    <span className="font-semibold">BEST回答者分:</span>{" "}
+                    {formatYen(payout.revenueShare.answerOwnerAmount)}
+                  </p>
+                  <p>
                     <span className="font-semibold">手数料:</span>{" "}
                     {formatYen(payout.revenueShare.platformFeeAmount)}
                   </p>
@@ -274,7 +272,7 @@ export default function BestViewPayoutsTable() {
                     disabled={!canTransfer || processingId === payout.id}
                     className="rounded bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
                   >
-                    {processingId === payout.id ? "送金中..." : "送金する"}
+                    {processingId === payout.id ? "処理中..." : "月次一括振込で処理"}
                   </button>
                   {!canTransfer &&
                     payout.status !== "processing" &&

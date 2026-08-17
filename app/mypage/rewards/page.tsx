@@ -20,6 +20,8 @@ function getStatusLabel(status: string) {
       return "未送金";
     case "processing":
       return "処理中";
+    case "scheduled":
+      return "振込予定";
     case "paid":
       return "送金済み";
     case "failed":
@@ -178,6 +180,9 @@ export default async function MyPageRewardsPage() {
   const unpaidAmount = history
     .filter((item) => item.status !== "paid")
     .reduce((sum, item) => sum + item.amount, 0);
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const currentYear = String(now.getFullYear());
 
   return (
     <div className="mx-auto max-w-5xl p-6 text-black">
@@ -209,7 +214,20 @@ export default async function MyPageRewardsPage() {
       </div>
 
       <section className="rounded border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold">報酬履歴</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold">報酬履歴</h2>
+          <div className="flex gap-2 text-sm">
+            <a className="rounded border px-3 py-2" href={`/api/rewards/export?period=${currentMonth}`}>
+              今月CSV
+            </a>
+            <a className="rounded border px-3 py-2" href={`/api/rewards/export?period=${currentYear}`}>
+              今年CSV
+            </a>
+          </div>
+        </div>
+        <p className="mb-4 text-xs text-gray-500">
+          毎月末締め。未送金残高が5,000円以上の場合、翌月に全額を一括振込します。5,000円未満は繰り越します。
+        </p>
 
         {history.length === 0 ? (
           <p className="text-sm text-gray-500">まだ報酬履歴はありません。</p>

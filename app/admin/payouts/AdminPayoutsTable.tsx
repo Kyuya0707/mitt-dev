@@ -53,6 +53,8 @@ export default function AdminPayoutsTable() {
         return "未送金";
       case "processing":
         return "処理中";
+      case "scheduled":
+        return "月次振込予定";
       case "paid":
         return "送金済み";
       case "failed":
@@ -170,15 +172,7 @@ export default function AdminPayoutsTable() {
             const grossAmount = payout.grossAmount ?? payout.amount;
             const platformFeeAmount = payout.platformFeeAmount ?? 0;
             const netAmount = payout.netAmount ?? payout.amount;
-            const destinationStripeAccountId =
-              payout.stripeAccountId ?? payout.user.stripeAccountId;
-            const canTransfer =
-              Boolean(destinationStripeAccountId) &&
-              payout.user.stripeConnectPayoutsEnabled &&
-              payout.user.stripeConnectDetailsSubmitted &&
-              payout.status !== "processing" &&
-              payout.status !== "paid" &&
-              !payout.stripeTransferId;
+            const canTransfer = false;
 
             return (
               <div
@@ -279,7 +273,7 @@ export default function AdminPayoutsTable() {
                     disabled={!canTransfer || processingId === payout.id}
                     className="rounded bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
                   >
-                    {processingId === payout.id ? "送金中..." : "送金する"}
+                    {processingId === payout.id ? "処理中..." : "月次一括振込で処理"}
                   </button>
                   {!canTransfer && payout.status !== "processing" && payout.status !== "paid" && (
                     <p className="mt-2 text-xs text-gray-500">

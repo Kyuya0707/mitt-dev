@@ -1,3 +1,4 @@
+export const MIN_VIEWER_PRICE_JPY = 100;
 export const MAX_VIEWER_PRICE_JPY = 100000;
 
 type ViewerPriceValidationResult =
@@ -19,8 +20,11 @@ export function validateViewerPrice(raw: unknown): ViewerPriceValidationResult {
     return { ok: false, message: "BEST閲覧価格は整数で入力してください" };
   }
 
-  if (value <= 0) {
-    return { ok: false, message: "BEST閲覧価格は1円以上で入力してください" };
+  if (value < MIN_VIEWER_PRICE_JPY) {
+    return {
+      ok: false,
+      message: `BEST閲覧価格は${MIN_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円以上で入力してください`,
+    };
   }
 
   if (value > MAX_VIEWER_PRICE_JPY) {

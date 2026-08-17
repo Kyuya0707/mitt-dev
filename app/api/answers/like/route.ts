@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getUserMutationRestriction } from "@/lib/user-access";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 
@@ -17,6 +18,10 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
+    const restriction = await getUserMutationRestriction(user.id);
+    if (restriction) {
+      return NextResponse.json({ error: restriction }, { status: 403 });
+    }
 
     const { answerId } = await req.json();
 
@@ -30,11 +35,65 @@ export async function POST(req: Request) {
     const result = await prisma.$transaction(async (tx) => {
       const answer = await tx.answer.findUnique({
         where: { id: answerId },
-        select: { id: true },
+        select: {
+          id: true,
+          userId: true,
+          questionId: true,
+          question: {
+            select: {
+              userId: true,
+              bestAnswerId: true,
+              isPaid: true,
+              cancellationRequests: {
+                where: { status: "approved" },
+                select: { id: true },
+                take: 1,
+              },
+            },
+          },
+        },
       });
 
       if (!answer) {
         return { ok: false as const, status: 404, error: "回答が見つかりません" };
+      }
+
+
+      if (
+        !answer.question.isPaid ||
+        answer.question.cancellationRequests.length > 0
+      ) {
+        return { ok: false as const, status: 404, error: "回答が見つかりません" };
+      }
+
+      if (answer.userId === user.id) {
+        return {
+          ok: false as const,
+          status: 403,
+          error: "自分の回答は評価できません",
+        };
+      }
+
+      const isQuestionOwner = answer.question.userId === user.id;
+      const isBestAnswer = answer.question.bestAnswerId === answer.id;
+      const hasPurchasedBestAnswer = isBestAnswer
+        ? (await tx.purchase.findFirst({
+            where: {
+              userId: user.id,
+              questionId: answer.questionId,
+              kind: "best_view",
+              status: "PAID",
+            },
+            select: { id: true },
+          })) !== null
+        : false;
+
+      if (!isQuestionOwner && !hasPurchasedBestAnswer) {
+        return {
+          ok: false as const,
+          status: 403,
+          error: "この回答を評価する権限がありません",
+        };
       }
 
       const existing = await tx.answerLike.findUnique({

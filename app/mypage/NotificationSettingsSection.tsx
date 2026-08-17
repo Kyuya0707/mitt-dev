@@ -11,7 +11,7 @@ type NotificationPreferences = {
   emailOnNegotiationAccepted: boolean;
   emailOnNegotiationRejected: boolean;
   emailOnCategoryQuestionCreated: boolean;
-  emailOnLogin: boolean;
+  emailOnQuestionSupplement: boolean;
 };
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -22,7 +22,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   emailOnNegotiationAccepted: true,
   emailOnNegotiationRejected: true,
   emailOnCategoryQuestionCreated: true,
-  emailOnLogin: true,
+  emailOnQuestionSupplement: true,
 };
 
 const SETTINGS: Array<{
@@ -30,6 +30,7 @@ const SETTINGS: Array<{
   label: string;
 }> = [
   { key: "emailOnAnswerCreated", label: "自分の質問に回答がついた" },
+  { key: "emailOnQuestionSupplement", label: "回答した質問に補足が追加された" },
   { key: "emailOnCommentCreated", label: "自分の回答にコメントがついた" },
   { key: "emailOnBestSelected", label: "自分の回答がBESTに選ばれた" },
   { key: "emailOnNegotiationCreated", label: "交渉が届いた" },
@@ -39,7 +40,6 @@ const SETTINGS: Array<{
     key: "emailOnCategoryQuestionCreated",
     label: "自分の興味カテゴリに一致する質問が公開された",
   },
-  { key: "emailOnLogin", label: "ログインがあった" },
 ];
 
 export default function NotificationSettingsSection() {
@@ -70,10 +70,7 @@ export default function NotificationSettingsSection() {
             emailOnCategoryQuestionCreated: Boolean(
               data.emailOnCategoryQuestionCreated
             ),
-            emailOnLogin:
-              data.emailOnLogin === undefined
-                ? true
-                : Boolean(data.emailOnLogin),
+            emailOnQuestionSupplement: Boolean(data.emailOnQuestionSupplement),
           });
         }
       } finally {
@@ -129,10 +126,13 @@ export default function NotificationSettingsSection() {
   return (
     <MyPageCard
       title="通知設定"
-      description="回答、コメント、BEST選定、ログイン通知などのメール受信設定です。"
+      description="一般的なメール通知の受信設定です。"
     >
       <p className="mb-4 text-sm text-gray-600">
         アプリ内通知は常に届きます。ここではメール通知のみ切り替えできます。
+      </p>
+      <p className="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+        ログイン、返金、振込失敗などのセキュリティ・金銭関連メールは停止できません。
       </p>
 
       <div className="space-y-3">

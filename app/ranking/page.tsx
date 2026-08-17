@@ -1,23 +1,20 @@
 // app/ranking/page.tsx
 import Link from "next/link";
+import {
+  getRankingRows,
+  normalizeRankingRange,
+  type RankingRow,
+} from "@/lib/ranking";
 
-async function fetchRanking(range: "week" | "month" | "all") {
-  const res = await fetch(
-    `http://localhost:3000/api/ranking?range=${range}`,
-    { cache: "no-store" }
-  );
-
-  return res.json();
-}
+export const dynamic = "force-dynamic";
 
 export default async function RankingPage(props: {
   searchParams: Promise<{ range?: "week" | "month" | "all" }>;
 }) {
 
   const searchParams = await props.searchParams;
-  const range = searchParams?.range ?? "week";
-
-  const data = await fetchRanking(range);
+  const range = normalizeRankingRange(searchParams?.range);
+  const rows = await getRankingRows(range);
 
   const title =
     range === "week" ? "週間" :
@@ -38,12 +35,12 @@ export default async function RankingPage(props: {
         <Link href="/ranking?range=all">累計</Link>
       </div>
 
-      {data.rows.length === 0 ? (
+      {rows.length === 0 ? (
         <p>まだランキングデータがありません</p>
       ) : (
         <div className="space-y-3">
-          {data.rows.map((r: any) => (
-            <div key={r.rank} className="p-4 border rounded">
+          {rows.map((r: RankingRow) => (
+            <div key={r.userId} className="p-4 border rounded">
               <div className="font-bold">
                 #{r.rank} {r.displayName}
               </div>
@@ -54,6 +51,10 @@ export default async function RankingPage(props: {
 
               <div className="text-sm">
                 信頼スコア: {r.trustScore}
+              </div>
+
+              <div className="text-sm">
+                ランク: {r.trustRank}
               </div>
             </div>
           ))}

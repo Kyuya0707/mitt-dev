@@ -4,7 +4,7 @@ import AdminPayoutsTable from "./AdminPayoutsTable";
 import AdminNav from "../AdminNav";
 
 export default async function AdminPayoutsPage() {
-  const { user, isAdmin } = await getCurrentUserAdminStatus();
+  const { user, canManageAccounting } = await getCurrentUserAdminStatus();
 
   if (!user) {
     return (
@@ -19,7 +19,7 @@ export default async function AdminPayoutsPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canManageAccounting) {
     return (
       <div className="min-h-screen bg-white text-black">
         <AppHeader />

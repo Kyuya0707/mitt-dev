@@ -185,65 +185,40 @@ async function finalizeQuestionCheckoutSession(
     };
   }
 
-  const existingByUser = purchaseUserId
-    ? await prisma.purchase.findFirst({
-        where: {
-          userId: purchaseUserId,
-          questionId,
-          status: "PAID",
-        },
-        select: {
-          id: true,
-          stripeSessionId: true,
-          stripeChargeId: true,
-          transferGroup: true,
-        },
-      })
-    : null;
+  if (!purchaseUserId) {
+    return { ok: false, reason: "session_mismatch" };
+  }
 
-  const shouldCreatePurchase = !!purchaseUserId && !existingByUser;
-  const shouldUpdateExistingPurchaseSessionId =
-    !!sessionId &&
-    !!existingByUser &&
-    !existingByUser.stripeSessionId;
+  const rewardPeriodStartedAt = new Date(session.created * 1000);
+  const rewardExpiresAt = new Date(
+    rewardPeriodStartedAt.getTime() + 90 * 24 * 60 * 60 * 1000
+  );
 
   await prisma.$transaction(async (tx) => {
-    if (!current.isPaid) {
-      await tx.question.update({
-        where: { id: questionId },
-        data: { isPaid: true },
-      });
-    }
+    await tx.question.update({
+      where: { id: questionId },
+      data: {
+        isPaid: true,
+        isClosed: false,
+        rewardPeriodStartedAt,
+        rewardExpiresAt,
+        rewardStoppedAt: null,
+      },
+    });
 
-    if (shouldCreatePurchase && purchaseUserId) {
-      await tx.purchase.create({
-        data: {
-          userId: purchaseUserId,
-          questionId,
-          amount: checkoutAmount,
-          currency: (session.currency ?? "jpy").toLowerCase(),
-          stripeSessionId: sessionId ?? null,
-          stripeChargeId,
-          transferGroup,
-          status: "PAID",
-        },
-      });
-    }
-
-    if (shouldUpdateExistingPurchaseSessionId && existingByUser) {
-      await tx.purchase.update({
-        where: { id: existingByUser.id },
-        data: {
-          stripeSessionId: sessionId,
-          ...(stripeChargeId && !existingByUser.stripeChargeId
-            ? { stripeChargeId }
-            : {}),
-          ...(transferGroup && !existingByUser.transferGroup
-            ? { transferGroup }
-            : {}),
-        },
-      });
-    }
+    await tx.purchase.create({
+      data: {
+        userId: purchaseUserId,
+        questionId,
+        amount: checkoutAmount,
+        kind: "question_post",
+        currency: (session.currency ?? "jpy").toLowerCase(),
+        stripeSessionId: sessionId ?? null,
+        stripeChargeId,
+        transferGroup,
+        status: "PAID",
+      },
+    });
   });
 
   if (!current.isPaid && current.userId && current.category?.name) {
@@ -256,12 +231,12 @@ async function finalizeQuestionCheckoutSession(
     });
   }
 
-    return {
-      ok: true,
-      session,
-      questionId,
-      isPaid: true,
-      alreadyPaid: current.isPaid,
-      updatedQuestion: !current.isPaid,
-    };
+  return {
+    ok: true,
+    session,
+    questionId,
+    isPaid: true,
+    alreadyPaid: current.isPaid,
+    updatedQuestion: true,
+  };
 }

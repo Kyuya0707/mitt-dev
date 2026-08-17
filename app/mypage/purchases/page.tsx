@@ -63,7 +63,9 @@ export default async function PurchaseHistoryPage({
             >
               <div className="mb-3">
                 <span className="inline-flex items-center px-2 py-1 rounded-full bg-yellow-100 text-yellow-900 text-xs font-semibold">
-                  BEST回答閲覧購入
+                  {p.kind === "best_view"
+                    ? "BEST回答閲覧購入"
+                    : "質問報酬・利用料の決済"}
                 </span>
               </div>
 

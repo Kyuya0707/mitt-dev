@@ -16,9 +16,9 @@ export default function AppFooter() {
         <Link href="/refund-policy" className="hover:underline">
           返金ポリシー
         </Link>
-        <a href="mailto:support@knowvalue.jp" className="hover:underline">
+        <Link href="/contact" className="hover:underline">
           お問い合わせ
-        </a>
+        </Link>
       </div>
     </footer>
   );

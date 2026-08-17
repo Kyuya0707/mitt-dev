@@ -203,24 +203,20 @@ type FaqEntry = {
 const FAQ_ITEMS: FaqEntry[] = [
   {
     q: "質問をキャンセルできますか？",
-    a: "質問投稿後すぐに自由キャンセルはできません。回答期限を設定している場合はその期限を過ぎると、未設定の場合は投稿から2週間後にキャンセル申請が可能になります。承認は管理者判断で行われ、決済や返金の扱いは運営確認後に進めます。",
+    a: "質問投稿後すぐに自由キャンセルはできません。回答期限を過ぎるとキャンセル申請が可能になり、回答がない場合は自動承認、回答がある場合は運営が内容を確認します。承認時は質問報酬を返金しますが、10%の利用料は返金されません。",
     defaultOpen: true,
   },
   {
     q: "回答期限は設定できますか？",
-    a: "はい、質問投稿時に任意で回答期限を設定できます。未入力のまま投稿することもでき、その場合は回答期限なしとして扱われます。",
+    a: "はい。質問投稿時に回答期限の設定が必須で、通常は投稿日の14日後以降を指定します。",
   },
   {
     q: "回答期限を過ぎるとどうなりますか？",
     a: "回答期限を過ぎると、質問者はキャンセル申請ができるようになります。キャンセルは引き続き管理者承認制で、決済や返金の扱いは運営確認後に進みます。",
   },
   {
-    q: "回答期限を設定しない場合、いつキャンセルできますか？",
-    a: "回答期限を設定しない場合は、投稿から2週間後にキャンセル申請が可能になります。",
-  },
-  {
     q: "回答期限は後から変更できますか？",
-    a: "はい、質問者本人は、未クローズの質問について回答期限を後から変更できます。回答期限なしに戻すこともできます。",
+    a: "期限前であれば延長できます。短縮、期限後の変更、回答期限なしへの変更はできません。",
   },
   {
     q: "BEST回答とは何ですか？",
@@ -232,7 +228,7 @@ const FAQ_ITEMS: FaqEntry[] = [
   },
   {
     q: "BEST回答が閲覧された場合、収益はどう分配されますか？",
-    a: "BEST閲覧料は、質問者70%、KnowValue運営30%で分配されます。回答者はBEST回答に選ばれた時点で、質問投稿時に設定された報酬を受け取ります。BEST閲覧料から回答者への追加分配は現在行っていません。",
+    a: "BEST閲覧料は、質問者50%、BEST回答者20%、KnowValue運営30%で分配されます。BEST回答者は、これとは別に質問投稿時に設定された報酬も受け取ります。",
   },
   {
     q: "BEST回答の閲覧金額は後から変更できますか？",
@@ -551,7 +547,7 @@ export default function WelcomePage() {
                 />
                 <InfoCard
                   title="BEST回答は有料コンテンツ"
-                  desc="質問者は回答の中から BEST回答 を選択でき、BEST回答は有料コンテンツとして公開されます。閲覧料金は質問者70%、KnowValue運営30%で分配されます。"
+                  desc="質問者は回答の中から BEST回答 を選択でき、BEST回答は有料コンテンツとして公開されます。閲覧料金は質問者50%、BEST回答者20%、KnowValue運営30%で分配されます。"
                 />
                 <InfoCard
                   title="報酬受取はStripe Connect"
@@ -582,7 +578,7 @@ export default function WelcomePage() {
                       4. 他ユーザーが BEST回答 を有料閲覧する
                     </div>
                     <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-yellow-100">
-                      5. 閲覧料金の70%が質問者へ還元され、30%がKnowValue運営へ充当されます
+                      5. 閲覧料金の50%を質問者、20%をBEST回答者、30%をKnowValue運営へ分配します
                     </div>
                   </div>
                 </div>
@@ -593,7 +589,7 @@ export default function WelcomePage() {
                       個人間送金サービスではありません
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-white/70">
-                      KnowValue は、質問投稿・回答・BEST閲覧を通じて価値を流通させるQ&Aサービスです。閲覧料金は質問者と運営に分配され、回答者はBEST回答に選ばれた時点で質問投稿時の報酬を受け取ります。
+                      KnowValue は、質問投稿・回答・BEST閲覧を通じて価値を流通させるQ&Aサービスです。閲覧料金は質問者、BEST回答者、運営に分配され、回答者はBEST回答に選ばれた時点で質問投稿時の報酬も受け取ります。
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
@@ -653,19 +649,22 @@ export default function WelcomePage() {
                     BEST回答は有料で公開できます。
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">
-                    BEST回答の閲覧料は、質問者70%、KnowValue運営30%で分配されます。
-                    良い質問そのものが、一度きりではなく継続的に評価される仕組みです。
+                    BEST回答の閲覧料は、質問者50%、BEST回答者20%、KnowValue運営30%で分配されます。
+                    良い質問と価値ある回答の両方が、継続的に評価される仕組みです。
                   </p>
                 </div>
                 <div className="grid gap-3 text-sm text-white/75">
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    質問者70%
+                    質問者50%
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    BEST回答者20%
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     KnowValue運営30%
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    BEST回答者は選定時に報酬受取
+                    BEST回答者は選定時の質問報酬も受取
                   </div>
                 </div>
               </div>

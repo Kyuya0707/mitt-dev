@@ -7,6 +7,7 @@ export type NegotiationStatus =
 export type AnswerUser = {
   id: string;
   username: string | null;
+  deletedAt: Date | string | null;
 };
 
 export type AnswerImage = {
@@ -34,6 +35,9 @@ export type AnswerNegotiation = {
   id: string;
   proposedAmount: number;
   status: NegotiationStatus;
+  acceptedAt: Date | string | null;
+  answerDueAt: Date | string | null;
+  submittedAt: Date | string | null;
 } | null;
 
 export type QuestionAnswer = {

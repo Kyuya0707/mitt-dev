@@ -1,5 +1,7 @@
 export const MAX_ANSWER_DEADLINE_DAYS = 365;
+export const MIN_ANSWER_DEADLINE_DAYS = 14;
 export const QUESTION_CANCEL_GRACE_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function isValidDate(date: Date) {
   return !Number.isNaN(date.getTime());
@@ -27,9 +29,22 @@ function parseDateTimeLocalAsJst(value: string) {
   );
 }
 
-export function parseAnswerDeadlineInput(value: unknown) {
+export function getMinimumAnswerDeadline(
+  now = new Date(),
+  minimumDays = MIN_ANSWER_DEADLINE_DAYS
+) {
+  return new Date(now.getTime() + minimumDays * DAY_MS);
+}
+
+export function parseAnswerDeadlineInput(
+  value: unknown,
+  options: { now?: Date; minimumDays?: number } = {}
+) {
   if (value === null || value === undefined || value === "") {
-    return { ok: true as const, value: null };
+    return {
+      ok: false as const,
+      message: "回答期限を入力してください",
+    };
   }
 
   if (typeof value !== "string") {
@@ -47,11 +62,20 @@ export function parseAnswerDeadlineInput(value: unknown) {
     };
   }
 
-  const now = new Date();
+  const now = options.now ?? new Date();
   if (parsed.getTime() <= now.getTime()) {
     return {
       ok: false as const,
       message: "回答期限は現在時刻より後で設定してください",
+    };
+  }
+
+  const minimumDays = options.minimumDays ?? MIN_ANSWER_DEADLINE_DAYS;
+  const minimumDate = getMinimumAnswerDeadline(now, minimumDays);
+  if (parsed.getTime() < minimumDate.getTime()) {
+    return {
+      ok: false as const,
+      message: `回答期限は${minimumDays}日後以降で設定してください`,
     };
   }
 

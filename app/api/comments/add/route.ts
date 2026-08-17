@@ -7,6 +7,8 @@ import {
 } from "@/lib/notifications";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 import { publicUserSelect } from "@/lib/public-user-select";
+import { validateUserContentLinks } from "@/lib/content-policy";
+import { getUserMutationRestriction } from "@/lib/user-access";
 
 export async function POST(req: Request) {
   try {
@@ -20,6 +22,10 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
+    const restriction = await getUserMutationRestriction(user.id);
+    if (restriction) {
+      return NextResponse.json({ error: restriction }, { status: 403 });
+    }
 
     if (
       typeof content !== "string" ||
@@ -32,6 +38,10 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    const contentPolicy = validateUserContentLinks(content);
+    if (!contentPolicy.ok) {
+      return NextResponse.json({ error: contentPolicy.message }, { status: 400 });
+    }
 
     const answer = await prisma.answer.findUnique({
       where: { id: answerId },
@@ -43,12 +53,28 @@ export async function POST(req: Request) {
           select: {
             title: true,
             userId: true,
+            isPaid: true,
+            cancellationRequests: {
+              where: { status: "approved" },
+              select: { id: true },
+              take: 1,
+            },
           },
         },
       },
     });
 
     if (!answer || !answer.question) {
+      return NextResponse.json(
+        { error: "回答が見つかりません" },
+        { status: 404 }
+      );
+    }
+
+    if (
+      !answer.question.isPaid ||
+      answer.question.cancellationRequests.length > 0
+    ) {
       return NextResponse.json(
         { error: "回答が見つかりません" },
         { status: 404 }

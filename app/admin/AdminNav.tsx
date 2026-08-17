@@ -1,7 +1,14 @@
 import Link from "next/link";
 
 type AdminNavProps = {
-  current: "dashboard" | "payouts" | "best-view-payouts" | "cancellation-requests";
+  current:
+    | "dashboard"
+    | "payout-batches"
+    | "payouts"
+    | "best-view-payouts"
+    | "cancellation-requests"
+    | "reports"
+    | "support-tickets";
 };
 
 function getLinkClass(active: boolean) {
@@ -27,22 +34,34 @@ export default function AdminNav({ current }: AdminNavProps) {
         ダッシュボード
       </Link>
       <Link
+        href="/admin/payout-batches"
+        className={getLinkClass(current === "payout-batches")}
+      >
+        月次一括振込
+      </Link>
+      <Link
         href="/admin/payouts"
         className={getLinkClass(current === "payouts")}
       >
-        質問報酬Payout
+        質問報酬明細
       </Link>
       <Link
         href="/admin/best-view-payouts"
         className={getLinkClass(current === "best-view-payouts")}
       >
-        BEST閲覧料Payout
+        BEST閲覧料明細
       </Link>
       <Link
         href="/admin/cancellation-requests"
         className={getLinkClass(current === "cancellation-requests")}
       >
         キャンセル申請
+      </Link>
+      <Link href="/admin/reports" className={getLinkClass(current === "reports")}>
+        通報・異議申立て
+      </Link>
+      <Link href="/admin/support-tickets" className={getLinkClass(current === "support-tickets")}>
+        お問い合わせ
       </Link>
     </div>
   );

@@ -15,6 +15,7 @@ import {
   trackGA4BeginCheckout,
   trackGA4BestSelected,
 } from "@/lib/ga";
+import ReportButton from "@/app/components/ReportButton";
 
 type AnswerCardProps = {
   ans: QuestionAnswer;
@@ -48,6 +49,17 @@ export default function AnswerCard({
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
   const [bestCheckoutLoading, setBestCheckoutLoading] = useState(false);
+  const [answerContent, setAnswerContent] = useState(ans.content ?? "");
+  const [editContent, setEditContent] = useState(ans.content ?? "");
+  const [editing, setEditing] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editNoAiConfirmed, setEditNoAiConfirmed] = useState(false);
+  const [negotiatedAnswerContent, setNegotiatedAnswerContent] = useState("");
+  const [negotiatedAnswerNoAi, setNegotiatedAnswerNoAi] = useState(false);
+  const [negotiatedAnswerSaving, setNegotiatedAnswerSaving] = useState(false);
+  const [negotiationSubmitted, setNegotiationSubmitted] = useState(
+    Boolean(ans.negotiation?.submittedAt)
+  );
 
   const authorName = useMemo(
     () => getPublicUserDisplayName(ans.user, ans.userId),
@@ -75,7 +87,9 @@ export default function AnswerCard({
   const isAccepted = status === "ACCEPTED";
   const proposedAmount = negotiation ? Number(negotiation.proposedAmount) : null;
   const chargedAmount =
-    proposedAmount !== null ? proposedAmount - questionRewardAmount : null;
+    proposedAmount !== null
+      ? proposedAmount + Math.floor(proposedAmount * 0.1)
+      : null;
   const bestViewBreakdown = getBestViewRevenueBreakdown(viewerPrice ?? 0);
   const shouldShowNegotiationManagement =
     !!negotiation && isPending && canManageNegotiation;
@@ -86,8 +100,13 @@ export default function AnswerCard({
   const shouldShowAcceptedNegotiationContent =
     !!negotiation &&
     isAccepted &&
+    negotiationSubmitted &&
     canViewAcceptedNegotiationAnswer &&
     !canViewBestContent;
+  const shouldShowNegotiatedAnswerForm =
+    !!negotiation && isAccepted && !negotiationSubmitted && isAnswerOwner;
+  const shouldShowNegotiatedAnswerWaiting =
+    !!negotiation && isAccepted && !negotiationSubmitted && isQuestionOwner;
   const shouldShowAcceptedNegotiationNotice =
     !!negotiation &&
     isAccepted &&
@@ -286,6 +305,78 @@ export default function AnswerCard({
     }
   };
 
+  const handleSaveEdit = async () => {
+    if (editSaving) return;
+    setEditSaving(true);
+    try {
+      const response = await fetch(`/api/answers/${ans.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: editContent,
+          noAiConfirmed: editNoAiConfirmed,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        answer?: { content?: string };
+      };
+      if (!response.ok || !data.answer?.content) {
+        alert(toJapaneseErrorMessage(data, "回答の編集に失敗しました"));
+        return;
+      }
+      setAnswerContent(data.answer.content);
+      setEditContent(data.answer.content);
+      setEditNoAiConfirmed(false);
+      setEditing(false);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDeleteAnswer = async () => {
+    if (!window.confirm("この回答を削除しますか？削除後は元に戻せません。")) {
+      return;
+    }
+    const response = await fetch(`/api/answers/${ans.id}`, { method: "DELETE" });
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      alert(toJapaneseErrorMessage(data, "回答の削除に失敗しました"));
+      return;
+    }
+    window.location.reload();
+  };
+
+  const handleSubmitNegotiatedAnswer = async () => {
+    if (!negotiation || negotiatedAnswerSaving) return;
+    setNegotiatedAnswerSaving(true);
+    try {
+      const response = await fetch(
+        `/api/negotiations/${negotiation.id}/submit-answer`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: negotiatedAnswerContent,
+            noAiConfirmed: negotiatedAnswerNoAi,
+          }),
+        }
+      );
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        content?: string;
+      };
+      if (!response.ok || !data.content) {
+        alert(toJapaneseErrorMessage(data, "交渉回答の投稿に失敗しました"));
+        return;
+      }
+      setAnswerContent(data.content);
+      setNegotiationSubmitted(true);
+    } finally {
+      setNegotiatedAnswerSaving(false);
+    }
+  };
+
   const renderAnswerBody = () => (
     <>
       <div
@@ -299,7 +390,7 @@ export default function AnswerCard({
           prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
         "
       >
-        <ReactMarkdown>{ans.content ?? ""}</ReactMarkdown>
+        <ReactMarkdown>{answerContent}</ReactMarkdown>
       </div>
 
       {images.length > 0 && (
@@ -359,7 +450,7 @@ export default function AnswerCard({
         <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
           実体験ベース
         </span>
-        {ans.content && ans.content.trim().length >= 180 && (
+        {answerContent.trim().length >= 180 && (
           <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
             詳細回答
           </span>
@@ -378,7 +469,7 @@ export default function AnswerCard({
               このBEST回答は有料公開されています
             </div>
             <p className="mt-1 text-xs leading-relaxed text-yellow-900/80">
-              閲覧料金は質問者への還元とKnowValue運営維持のために分配されます。
+              閲覧料金は質問者50%、BEST回答者20%、KnowValue運営30%で分配されます。
             </p>
           </div>
           <p className="mb-3">このBEST回答はロックされています。閲覧には購入が必要です。</p>
@@ -417,11 +508,17 @@ export default function AnswerCard({
                 に同意したものとみなします。
               </p>
               {viewerPrice && viewerPrice > 0 && (
-                <div className="mt-3 grid gap-2 rounded-lg border border-yellow-100 bg-white p-3 text-xs text-gray-600 sm:grid-cols-2">
+                <div className="mt-3 grid gap-2 rounded-lg border border-yellow-100 bg-white p-3 text-xs text-gray-600 sm:grid-cols-3">
                   <div>
                     <div className="text-gray-500">質問者への報酬</div>
                     <div className="font-semibold text-gray-900">
                       {bestViewBreakdown.questionOwnerAmount.toLocaleString("ja-JP")}円
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">BEST回答者への報酬</div>
+                    <div className="font-semibold text-gray-900">
+                      {bestViewBreakdown.answerOwnerAmount.toLocaleString("ja-JP")}円
                     </div>
                   </div>
                   <div>
@@ -456,11 +553,11 @@ export default function AnswerCard({
 
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <div className="px-3 py-1 rounded-full bg-purple-100 text-purple-900 font-bold">
-                  提案額：{Number(negotiation.proposedAmount).toLocaleString("ja-JP")} 円
+                  追加報酬：{Number(negotiation.proposedAmount).toLocaleString("ja-JP")} 円
                 </div>
 
                 <div className="px-3 py-1 rounded-full bg-white text-purple-900 font-bold border border-purple-200">
-                  追加支払い：
+                  決済額（10%利用料込）：
                   {chargedAmount !== null
                     ? `${chargedAmount.toLocaleString("ja-JP")} 円`
                     : "-"}
@@ -473,8 +570,8 @@ export default function AnswerCard({
                   className="px-4 py-2 rounded bg-purple-700 text-white hover:bg-purple-800 disabled:opacity-50"
                 >
                   {chargedAmount !== null && chargedAmount > 0
-                    ? `追加で${chargedAmount.toLocaleString("ja-JP")}円支払う`
-                    : "追加決済は不要です"}
+                    ? `${chargedAmount.toLocaleString("ja-JP")}円を支払って承認`
+                    : "決済できません"}
                 </button>
 
                 <button
@@ -488,8 +585,8 @@ export default function AnswerCard({
 
               <div className="mt-2 text-xs text-gray-500">
                 {chargedAmount !== null && chargedAmount > 0
-                  ? `※ 元の報酬額 ${questionRewardAmount.toLocaleString("ja-JP")}円 は支払い済みです。差額のみ追加決済されます`
-                  : "※ 提案額が元の報酬額以下のため、追加決済はできません"}
+                  ? `※ 元の質問報酬${questionRewardAmount.toLocaleString("ja-JP")}円とは別に決済します。回答者には回答投稿後、追加報酬の90%が付与されます`
+                  : "※ 追加報酬額を確認できません"}
               </div>
               {chargedAmount !== null && chargedAmount > 0 && (
                 <p className="mt-2 text-xs leading-6 text-gray-500">
@@ -509,6 +606,53 @@ export default function AnswerCard({
 
           {canViewBestContent ? (
             renderAnswerBody()
+          ) : shouldShowNegotiatedAnswerForm ? (
+            <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-4">
+              <div className="font-semibold text-green-900">
+                追加報酬の提案が承認されました
+              </div>
+              <p className="mt-1 text-xs text-green-800">
+                期限: {negotiation?.answerDueAt
+                  ? new Date(negotiation.answerDueAt).toLocaleString("ja-JP")
+                  : "確認中"}
+              </p>
+              <textarea
+                value={negotiatedAnswerContent}
+                onChange={(event) => setNegotiatedAnswerContent(event.target.value)}
+                rows={8}
+                className="mt-3 w-full rounded border border-green-200 bg-white p-3 text-sm text-gray-900"
+                placeholder="承認された条件に基づく回答を入力してください"
+              />
+              <label className="mt-2 flex items-start gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={negotiatedAnswerNoAi}
+                  onChange={(event) => setNegotiatedAnswerNoAi(event.target.checked)}
+                  className="mt-0.5"
+                />
+                AIによる生成・要約・翻訳・校正・編集を使用していません
+              </label>
+              <button
+                type="button"
+                onClick={handleSubmitNegotiatedAnswer}
+                disabled={
+                  negotiatedAnswerSaving ||
+                  !negotiatedAnswerContent.trim() ||
+                  !negotiatedAnswerNoAi
+                }
+                className="mt-3 rounded bg-green-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {negotiatedAnswerSaving ? "投稿中..." : "回答を投稿して追加報酬を確定"}
+              </button>
+            </div>
+          ) : shouldShowNegotiatedAnswerWaiting ? (
+            <div className="mt-3 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+              追加報酬の決済が完了しました。回答者の投稿期限は
+              {negotiation?.answerDueAt
+                ? new Date(negotiation.answerDueAt).toLocaleString("ja-JP")
+                : "確認中"}
+              です。
+            </div>
           ) : shouldShowPendingNegotiationNotice ? (
             <div className="mt-3 p-4 rounded-lg border border-purple-200 bg-purple-50">
               <div className="font-semibold text-purple-800 mb-2">
@@ -552,14 +696,16 @@ export default function AnswerCard({
 
       {!ans.locked && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={isLoading}
-            onClick={handleLike}
-            className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
-          >
-            👍 いいね <span className="ml-1 text-gray-700">{likes}</span>
-          </button>
+          {!isAnswerOwner && (
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={handleLike}
+              className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              👍 参考になった <span className="ml-1 text-gray-700">{likes}</span>
+            </button>
+          )}
 
           {canQuote && (
             <button
@@ -571,6 +717,75 @@ export default function AnswerCard({
             </button>
           )}
         </div>
+      )}
+
+      {isAnswerOwner && !hasBestAnswer && !ans.locked && (
+        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          {editing ? (
+            <div className="space-y-3">
+              <textarea
+                value={editContent}
+                onChange={(event) => setEditContent(event.target.value)}
+                rows={8}
+                className="w-full rounded border border-gray-300 bg-white p-3 text-sm text-gray-900"
+              />
+              <label className="flex items-start gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={editNoAiConfirmed}
+                  onChange={(event) =>
+                    setEditNoAiConfirmed(event.target.checked)
+                  }
+                  className="mt-0.5"
+                />
+                AIによる生成・要約・翻訳・校正・編集を使用していません
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  disabled={
+                    editSaving || !editContent.trim() || !editNoAiConfirmed
+                  }
+                  className="rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {editSaving ? "保存中..." : "変更を保存"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditContent(answerContent);
+                    setEditing(false);
+                  }}
+                  className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                回答を編集
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAnswer}
+                className="rounded border border-red-300 bg-white px-3 py-2 text-sm text-red-700"
+              >
+                回答を削除
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentUserId && !isAnswerOwner && !ans.locked && (
+        <ReportButton targetType="answer" targetId={ans.id} />
       )}
 
       {isQuestionOwner && isBest && (
@@ -623,6 +838,9 @@ export default function AnswerCard({
                 <span className="text-xs text-gray-400 ml-2">
                   {new Date(comment.createdAt).toLocaleString()}
                 </span>
+                {currentUserId && comment.user?.id !== currentUserId && (
+                  <ReportButton targetType="comment" targetId={comment.id} />
+                )}
               </div>
             ))}
           </div>

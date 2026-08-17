@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
+import { signAnswerImageReferences } from "@/lib/answer-image-storage";
 import type { QuestionAnswer } from "@/app/(app)/questions/[id]/types";
 import { validateViewerPrice } from "@/lib/viewer-price";
 import { getSafeErrorMessage } from "@/lib/safe-error";
@@ -42,6 +43,7 @@ const publicQuestionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
     },
   },
   answers: {
+    where: { reports: { none: { status: "CONFIRMED" } } },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -63,6 +65,7 @@ const publicQuestionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
         },
       },
       comments: {
+        where: { reports: { none: { status: "CONFIRMED" } } },
         orderBy: { createdAt: "asc" },
         select: {
           id: true,
@@ -86,8 +89,12 @@ export async function GET(
   try {
     const authUser = await getCurrentUser();
 
-    const question = await prisma.question.findUnique({
-      where: { id },
+    const question = await prisma.question.findFirst({
+      where: {
+        id,
+        cancellationRequests: { none: { status: "approved" } },
+        reports: { none: { status: "CONFIRMED" } },
+      },
       select: publicQuestionDetailSelect,
     });
 
@@ -99,10 +106,10 @@ export async function GET(
     }
 
     const isAuthor = authUser?.id === question.userId;
-    if (!question.isPaid && !isAuthor) {
+    if (!question.isPaid) {
       return NextResponse.json(
-        { error: "この質問はまだ公開されていません" },
-        { status: 403 }
+        { error: "質問が見つかりません" },
+        { status: 404 }
       );
     }
 
@@ -112,6 +119,7 @@ export async function GET(
             where: {
               userId: authUser.id,
               questionId: question.id,
+              kind: "best_view",
               status: "PAID",
             },
             select: { id: true },
@@ -150,9 +158,16 @@ export async function GET(
       };
     });
 
+    const answersWithSignedImages = await Promise.all(
+      answersWithLock.map(async (answer) => ({
+        ...answer,
+        images: await signAnswerImageReferences(answer.images),
+      }))
+    );
+
     return NextResponse.json({
       ...question,
-      answers: answersWithLock,
+      answers: answersWithSignedImages,
     });
   } catch (error) {
     console.error("❌ GET /questions/[id] Error:", {
@@ -176,7 +191,7 @@ export async function PATCH(
 
     const question = await prisma.question.findUnique({
       where: { id },
-      select: { userId: true, isClosed: true },
+      select: { userId: true, isClosed: true, answerDeadline: true },
     });
 
     if (!question) {
@@ -221,7 +236,9 @@ export async function PATCH(
     }
 
     const answerDeadlineValidation = hasAnswerDeadline
-      ? parseAnswerDeadlineInput(body.answerDeadline)
+      ? parseAnswerDeadlineInput(body.answerDeadline, {
+          minimumDays: question.answerDeadline ? 0 : undefined,
+        })
       : null;
 
     if (answerDeadlineValidation && !answerDeadlineValidation.ok) {
@@ -229,6 +246,26 @@ export async function PATCH(
         { error: answerDeadlineValidation.message },
         { status: 400 }
       );
+    }
+
+    if (hasAnswerDeadline && question.answerDeadline) {
+      if (question.answerDeadline.getTime() <= Date.now()) {
+        return NextResponse.json(
+          { error: "回答期限を過ぎた質問は期限を変更できません" },
+          { status: 400 }
+        );
+      }
+
+      if (
+        !answerDeadlineValidation?.ok ||
+        answerDeadlineValidation.value.getTime() <=
+          question.answerDeadline.getTime()
+      ) {
+        return NextResponse.json(
+          { error: "回答期限は現在の期限より後へ延長してください" },
+          { status: 400 }
+        );
+      }
     }
 
     const updated = await prisma.question.update({

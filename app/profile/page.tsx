@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
-import { CATEGORY_NAMES } from "@/lib/category-options";
+import {
+  CATEGORY_NAMES,
+  MAX_INTEREST_CATEGORIES,
+} from "@/lib/category-options";
 import { validateUsername } from "@/lib/username";
 
 const INTEREST_OPTIONS = [...CATEGORY_NAMES];
@@ -119,7 +122,11 @@ export default function ProfilePage() {
   // 興味カテゴリー切り替え
   const toggleInterest = (item: string) => {
     setInterests((prev) =>
-      prev.includes(item) ? prev.filter((v) => v !== item) : [...prev, item]
+      prev.includes(item)
+        ? prev.filter((v) => v !== item)
+        : prev.length < MAX_INTEREST_CATEGORIES
+          ? [...prev, item]
+          : prev
     );
   };
 
@@ -216,6 +223,7 @@ export default function ProfilePage() {
           username: usernameValidation.value,
           name: syncedUser.user_metadata?.full_name ?? null,
           interests,
+          bio,
         }),
       });
 
@@ -295,7 +303,9 @@ export default function ProfilePage() {
 
         {/* 興味カテゴリー */}
         <div>
-          <label className="block text-gray-700 mb-2">興味カテゴリー</label>
+          <label className="block text-gray-700 mb-2">
+            興味カテゴリー（最大{MAX_INTEREST_CATEGORIES}件）
+          </label>
 
           <div className="flex flex-wrap gap-2">
             {INTEREST_OPTIONS.map((item) => (
@@ -303,10 +313,14 @@ export default function ProfilePage() {
                 key={item}
                 type="button"
                 onClick={() => toggleInterest(item)}
+                disabled={
+                  !interests.includes(item) &&
+                  interests.length >= MAX_INTEREST_CATEGORIES
+                }
                 className={`px-3 py-1 rounded-full border ${
                   interests.includes(item)
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700"
+                    : "bg-gray-100 text-gray-700 disabled:opacity-40"
                 }`}
               >
                 {item}

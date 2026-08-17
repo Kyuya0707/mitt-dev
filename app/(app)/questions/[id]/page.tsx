@@ -1,6 +1,7 @@
 "use server";
 
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
@@ -20,6 +21,8 @@ import QuestionRepurchaseButton from "./QuestionRepurchaseButton";
 import ViewerPriceEditor from "./ViewerPriceEditor";
 import AnswerDeadlineEditor from "./AnswerDeadlineEditor";
 import CancellationRequestCard from "./CancellationRequestCard";
+import QuestionSupplementSection from "./QuestionSupplementSection";
+import QuestionBoostCard from "./QuestionBoostCard";
 import type { QuestionAnswer } from "./types";
 import {
   formatJapaneseDateTime,
@@ -29,6 +32,9 @@ import {
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { verifyBoostCheckoutSession } from "@/lib/boost-payment";
+import { signAnswerImageReferences } from "@/lib/answer-image-storage";
+import ReportButton from "@/app/components/ReportButton";
 
 const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
   id: true,
@@ -41,14 +47,25 @@ const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
   isClosed: true,
   rewardAmount: true,
   viewerPrice: true,
+  boostCount: true,
+  boostedAt: true,
+  boostExpiresAt: true,
   answerDeadline: true,
+  rewardPeriodStartedAt: true,
+  rewardExpiresAt: true,
+  rewardStoppedAt: true,
   isPaid: true,
   category: true,
   user: {
     select: publicUserSelect,
   },
   images: true,
+  supplements: {
+    orderBy: { createdAt: "asc" },
+    select: { id: true, content: true, createdAt: true },
+  },
   answers: {
+    where: { reports: { none: { status: "CONFIRMED" } } },
     orderBy: { createdAt: "asc" },
     include: {
       user: {
@@ -58,6 +75,7 @@ const questionDetailSelect = Prisma.validator<Prisma.QuestionSelect>()({
       negotiation: true,
       reads: true,
       comments: {
+        where: { reports: { none: { status: "CONFIRMED" } } },
         orderBy: { createdAt: "asc" },
         include: {
           user: {
@@ -140,6 +158,8 @@ export default async function Page({
   const negotiationCancelled = getSearchParam(sp?.negotiation_cancel) === "1";
   const bestViewPaid = getSearchParam(sp?.best_view_paid) === "1";
   const bestViewCancelled = getSearchParam(sp?.best_view_cancel) === "1";
+  const boostPaid = getSearchParam(sp?.boost_paid) === "1";
+  const boostCancelled = getSearchParam(sp?.boost_cancel) === "1";
   const checkoutSessionId = getSearchParam(sp?.session_id);
 
   const authUser = await getCurrentUser();
@@ -152,13 +172,17 @@ export default async function Page({
   const ppConsentAt = dbUser?.ppConsentAt ?? null;
   const answerPagePath = `/questions/${id}`;
 
-  const initialQuestion = await prisma.question.findUnique({
-    where: { id },
+  const initialQuestion = await prisma.question.findFirst({
+    where: {
+      id,
+      cancellationRequests: { none: { status: "approved" } },
+      reports: { none: { status: "CONFIRMED" } },
+    },
     select: questionDetailSelect,
   });
 
   if (!initialQuestion) {
-    return <div className="p-6">質問が見つかりません。</div>;
+    notFound();
   }
 
   const isAuthor = authUser?.id === initialQuestion.userId;
@@ -184,6 +208,13 @@ export default async function Page({
           sessionId: checkoutSessionId,
         })
       : null;
+  const boostPaymentVerification =
+    boostPaid && checkoutSessionId
+      ? await verifyBoostCheckoutSession({
+          sessionId: checkoutSessionId,
+          expectedQuestionId: id,
+        })
+      : null;
 
   const shouldRefetchQuestion = Boolean(
     (questionPaymentVerification?.ok &&
@@ -194,18 +225,25 @@ export default async function Page({
         negotiationPaymentVerification.updatedNegotiation) ||
       (bestViewPaymentVerification?.ok &&
         bestViewPaymentVerification.isPaid &&
-        bestViewPaymentVerification.createdPurchase)
+        bestViewPaymentVerification.createdPurchase) ||
+      (boostPaymentVerification?.ok &&
+        boostPaymentVerification.isPaid &&
+        boostPaymentVerification.updated)
   );
 
   const question = shouldRefetchQuestion
-    ? await prisma.question.findUnique({
-        where: { id },
+    ? await prisma.question.findFirst({
+        where: {
+          id,
+          cancellationRequests: { none: { status: "approved" } },
+          reports: { none: { status: "CONFIRMED" } },
+        },
         select: questionDetailSelect,
       })
     : initialQuestion;
 
   if (!question) {
-    return <div className="p-6">質問が見つかりません。</div>;
+    notFound();
   }
 
   const latestCancellationRequest = await prisma.cancellationRequest.findFirst({
@@ -277,6 +315,7 @@ export default async function Page({
           where: {
             userId: authUser.id,
             questionId: question.id,
+            kind: "best_view",
             status: "PAID",
           },
           select: { id: true },
@@ -289,27 +328,23 @@ export default async function Page({
      🔒 未決済のとき → 投稿者以外には非公開
   ========================================================== */
   if (!question.isPaid && !isAuthor) {
-    return (
-      <div className="max-w-3xl mx-auto p-6 mt-10 text-black">
-        <h1 className="text-xl font-bold mb-3">
-          この質問はまだ公開されていません
-        </h1>
-        <p className="text-gray-700 mb-6">
-          質問者が決済を完了するまで、内容は非公開です。
-        </p>
-
-        <Link href="/questions" className="text-blue-600 underline">
-          ← 質問一覧に戻る
-        </Link>
-      </div>
-    );
+    notFound();
   }
+
+  const isRewardStopped =
+    question.isPaid &&
+    question.isClosed &&
+    !question.bestAnswerId &&
+    !!question.rewardStoppedAt;
 
   // 関連質問
   const relatedQuestions = await prisma.question.findMany({
     where: {
       categoryId: question.categoryId,
       NOT: { id },
+      isPaid: true,
+      cancellationRequests: { none: { status: "approved" } },
+      reports: { none: { status: "CONFIRMED" } },
     },
     orderBy: { createdAt: "desc" },
     take: 3,
@@ -349,7 +384,13 @@ export default async function Page({
     };
   });
 
-  const sortedAnswers = [...answersWithLock].sort((a, b) => {
+  const answersWithSignedImages = await Promise.all(
+    answersWithLock.map(async (answer) => ({
+      ...answer,
+      images: await signAnswerImageReferences(answer.images),
+    }))
+  );
+  const sortedAnswers = [...answersWithSignedImages].sort((a, b) => {
     if (a.id === question.bestAnswerId) return -1;
     if (b.id === question.bestAnswerId) return 1;
     return 0;
@@ -434,10 +475,22 @@ export default async function Page({
           決済はキャンセルされました。再度購入する場合はボタンからお進みください。
         </div>
       )}
-      {!question.isPaid && isAuthor && (
+      {boostPaymentVerification?.ok && boostPaymentVerification.isPaid && (
+        <div className="mb-4 rounded bg-green-100 p-3 text-sm text-green-800">
+          Boostを適用しました。3日間、質問一覧の上部へ表示されます。
+        </div>
+      )}
+      {boostCancelled && (
+        <div className="mb-4 rounded bg-yellow-100 p-3 text-sm text-yellow-800">
+          Boost決済はキャンセルされました。
+        </div>
+      )}
+      {(!question.isPaid || isRewardStopped) && isAuthor && (
         <div className="mb-4 p-4 rounded border border-blue-200 bg-blue-50">
           <p className="text-sm text-blue-900 mb-3">
-            この質問はまだ公開されていません。決済を完了すると公開されます。
+            {isRewardStopped
+              ? "90日間の報酬期間が終了しています。新しい質問報酬と10%の利用料を決済すると、回答受付を90日間再開できます。"
+              : "この質問はまだ公開されていません。決済を完了すると公開されます。"}
           </p>
           <QuestionRepurchaseButton
             questionId={question.id}
@@ -461,6 +514,18 @@ export default async function Page({
         />
       )}
 
+      {isAuthor &&
+        question.isPaid &&
+        !question.isClosed &&
+        question.rewardAmount >= 3000 &&
+        question.boostCount < 3 && (
+          <QuestionBoostCard
+            questionId={question.id}
+            rewardAmount={question.rewardAmount}
+            boostCount={question.boostCount}
+          />
+        )}
+
       {/* 戻る */}
       <Link
         href="/questions"
@@ -473,11 +538,19 @@ export default async function Page({
       <h1 className="text-2xl font-bold mb-2 bg-white p-3 rounded shadow">
         {question.title}
       </h1>
+      {isLoggedIn && !isAuthor && (
+        <ReportButton targetType="question" targetId={question.id} />
+      )}
 
       {/* カテゴリー */}
       <p className="text-sm text-gray-500 mb-4">
         カテゴリー：{question.category?.name}
       </p>
+      {question.boostExpiresAt && question.boostExpiresAt > new Date() && (
+        <div className="mb-4 inline-flex rounded-full bg-orange-600 px-3 py-1 text-xs font-bold text-white">
+          🔥 Boost中（{formatJapaneseDateTime(question.boostExpiresAt)}まで）
+        </div>
+      )}
 
       <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
         <div className="font-semibold text-gray-900">回答期限</div>
@@ -511,6 +584,15 @@ export default async function Page({
       {/* 本文 */}
       <div className="whitespace-pre-line">{question.content}</div>
 
+      <QuestionSupplementSection
+        questionId={question.id}
+        initialSupplements={question.supplements.map((supplement) => ({
+          ...supplement,
+          createdAt: supplement.createdAt.toISOString(),
+        }))}
+        isAuthor={isAuthor}
+      />
+
       {/* 画像 */}
       {question.images.length > 0 && (
         <QuestionImages images={question.images} />
@@ -542,8 +624,13 @@ export default async function Page({
           </div>
         </div>
         <p className="mt-3 text-xs leading-6 text-gray-600">
-          この質問では、表示報酬額のうち10%がプラットフォーム手数料となり、残りが質問者へ還元されます。
+          この質問では、表示報酬額のうち10%がプラットフォーム手数料となり、残りがBEST回答者へ付与されます。
         </p>
+        {question.rewardExpiresAt && (
+          <p className="mt-1 text-xs leading-6 text-gray-600">
+            報酬期間終了: {formatJapaneseDateTime(question.rewardExpiresAt)}
+          </p>
+        )}
       </div>
       <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
         <div className="font-semibold text-yellow-900">
@@ -563,11 +650,17 @@ export default async function Page({
       {question.viewerPrice && question.viewerPrice > 0 && (
         <div className="mt-2 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-gray-700">
           <div className="font-semibold text-gray-900">BEST閲覧料の分配</div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg bg-white px-3 py-2">
               <div className="text-xs text-gray-500">質問者への報酬</div>
               <div className="font-semibold text-gray-900">
                 {bestViewBreakdown.questionOwnerAmount.toLocaleString("ja-JP")}円
+              </div>
+            </div>
+            <div className="rounded-lg bg-white px-3 py-2">
+              <div className="text-xs text-gray-500">BEST回答者への報酬</div>
+              <div className="font-semibold text-gray-900">
+                {bestViewBreakdown.answerOwnerAmount.toLocaleString("ja-JP")}円
               </div>
             </div>
             <div className="rounded-lg bg-white px-3 py-2">
@@ -578,7 +671,7 @@ export default async function Page({
             </div>
           </div>
           <p className="mt-3 text-xs leading-6 text-gray-600">
-            このBEST回答は有料公開できます。閲覧料金は質問者へ還元され、価値ある質問そのものが継続的に評価されます。
+            このBEST回答は有料公開でき、閲覧料金の50%を質問者、20%をBEST回答者へ還元します。
           </p>
         </div>
       )}

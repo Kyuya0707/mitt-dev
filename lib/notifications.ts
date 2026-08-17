@@ -14,6 +14,18 @@ export const NOTIFICATION_TYPES = {
   NEGOTIATION_ACCEPTED: "NEGOTIATION_ACCEPTED",
   NEGOTIATION_REJECTED: "NEGOTIATION_REJECTED",
   CATEGORY_QUESTION_CREATED: "CATEGORY_QUESTION_CREATED",
+  BEST_SELECTION_REMINDER: "BEST_SELECTION_REMINDER",
+  REWARD_PERIOD_REMINDER: "REWARD_PERIOD_REMINDER",
+  REWARD_PERIOD_EXPIRED: "REWARD_PERIOD_EXPIRED",
+  QUESTION_SUPPLEMENT: "QUESTION_SUPPLEMENT",
+  NEGOTIATION_EXPIRED: "NEGOTIATION_EXPIRED",
+  REPORT_CONFIRMED: "REPORT_CONFIRMED",
+  APPEAL_RESULT: "APPEAL_RESULT",
+  PAYOUT_SCHEDULED: "PAYOUT_SCHEDULED",
+  PAYOUT_COMPLETED: "PAYOUT_COMPLETED",
+  PAYOUT_FAILED: "PAYOUT_FAILED",
+  PAYOUT_TRANSFER_SCHEDULED: "PAYOUT_TRANSFER_SCHEDULED",
+  BEST_VIEW_REFUNDED: "BEST_VIEW_REFUNDED",
 } as const;
 
 export type NotificationType =
@@ -25,6 +37,7 @@ type NotificationData = {
   commentId?: string;
   negotiationId?: string;
   categoryId?: string;
+  reminderKey?: string;
 };
 
 type CreateNotificationInput = {
@@ -34,6 +47,8 @@ type CreateNotificationInput = {
   message: string;
   url?: string | null;
   data?: NotificationData;
+  dedupeKey?: string;
+  mandatoryEmail?: boolean;
 };
 
 type SafeCreateNotificationInput = CreateNotificationInput & {
@@ -52,6 +67,7 @@ type EmailPreferenceKey =
   | "emailOnNegotiationAccepted"
   | "emailOnNegotiationRejected"
   | "emailOnCategoryQuestionCreated"
+  | "emailOnQuestionSupplement"
   | "emailOnLogin";
 
 const EMAIL_PREFERENCE_KEY_BY_TYPE: Record<NotificationType, EmailPreferenceKey> = {
@@ -62,6 +78,18 @@ const EMAIL_PREFERENCE_KEY_BY_TYPE: Record<NotificationType, EmailPreferenceKey>
   NEGOTIATION_ACCEPTED: "emailOnNegotiationAccepted",
   NEGOTIATION_REJECTED: "emailOnNegotiationRejected",
   CATEGORY_QUESTION_CREATED: "emailOnCategoryQuestionCreated",
+  BEST_SELECTION_REMINDER: "emailOnBestSelected",
+  REWARD_PERIOD_REMINDER: "emailOnBestSelected",
+  REWARD_PERIOD_EXPIRED: "emailOnBestSelected",
+  QUESTION_SUPPLEMENT: "emailOnQuestionSupplement",
+  NEGOTIATION_EXPIRED: "emailOnNegotiationAccepted",
+  REPORT_CONFIRMED: "emailOnLogin",
+  APPEAL_RESULT: "emailOnLogin",
+  PAYOUT_SCHEDULED: "emailOnLogin",
+  PAYOUT_COMPLETED: "emailOnLogin",
+  PAYOUT_FAILED: "emailOnLogin",
+  PAYOUT_TRANSFER_SCHEDULED: "emailOnLogin",
+  BEST_VIEW_REFUNDED: "emailOnLogin",
 };
 
 function formatNotificationDate(date: Date) {
@@ -88,6 +116,30 @@ function getNotificationSubject(type: NotificationType) {
       return "交渉が見送られました";
     case NOTIFICATION_TYPES.CATEGORY_QUESTION_CREATED:
       return "興味カテゴリの質問が公開されました";
+    case NOTIFICATION_TYPES.BEST_SELECTION_REMINDER:
+      return "BEST回答を選んでください";
+    case NOTIFICATION_TYPES.REWARD_PERIOD_REMINDER:
+      return "質問報酬の期間終了が近づいています";
+    case NOTIFICATION_TYPES.REWARD_PERIOD_EXPIRED:
+      return "質問報酬の期間が終了し、返金しました";
+    case NOTIFICATION_TYPES.QUESTION_SUPPLEMENT:
+      return "回答した質問に補足が追加されました";
+    case NOTIFICATION_TYPES.NEGOTIATION_EXPIRED:
+      return "追加報酬の交渉期限が終了しました";
+    case NOTIFICATION_TYPES.REPORT_CONFIRMED:
+      return "投稿の規約違反を確認しました";
+    case NOTIFICATION_TYPES.APPEAL_RESULT:
+      return "異議申立ての審査結果";
+    case NOTIFICATION_TYPES.PAYOUT_SCHEDULED:
+      return "報酬を残高へ反映しました";
+    case NOTIFICATION_TYPES.PAYOUT_COMPLETED:
+      return "報酬の振込が完了しました";
+    case NOTIFICATION_TYPES.PAYOUT_FAILED:
+      return "報酬の振込に失敗しました";
+    case NOTIFICATION_TYPES.PAYOUT_TRANSFER_SCHEDULED:
+      return "報酬の振込予定が確定しました";
+    case NOTIFICATION_TYPES.BEST_VIEW_REFUNDED:
+      return "BEST回答の購入額を返金しました";
   }
 }
 
@@ -322,6 +374,8 @@ export async function createUserNotification({
   message,
   url,
   data,
+  dedupeKey,
+  mandatoryEmail,
 }: CreateNotificationInput) {
   if (!userId) {
     return null;
@@ -331,20 +385,35 @@ export async function createUserNotification({
     return null;
   }
 
-  const notification = await prisma.notification.create({
-    data: {
-      userId,
-      type,
-      message,
-      url: url ?? null,
-      data: data ? (data as Prisma.InputJsonValue) : undefined,
-    },
-  });
+  let notification;
+  try {
+    notification = await prisma.notification.create({
+      data: {
+        userId,
+        type,
+        message,
+        url: url ?? null,
+        dedupeKey: dedupeKey ?? null,
+        data: data ? (data as Prisma.InputJsonValue) : undefined,
+      },
+    });
+  } catch (error) {
+    if (
+      dedupeKey &&
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      return prisma.notification.findUnique({ where: { dedupeKey } });
+    }
+    throw error;
+  }
 
   try {
     const preference = await ensureNotificationPreference(userId);
     const preferenceKey = EMAIL_PREFERENCE_KEY_BY_TYPE[type];
-    const shouldSend = preference[preferenceKey];
+    const shouldSend = mandatoryEmail || preference[preferenceKey];
 
     if (!shouldSend) {
       return notification;
@@ -429,11 +498,7 @@ export async function sendLoginNotificationEmail(input: {
   loggedInAt?: Date;
 }) {
   try {
-    const preference = await ensureNotificationPreference(input.userId);
-
-    if (!preference.emailOnLogin) {
-      return false;
-    }
+    await ensureNotificationPreference(input.userId);
 
     await sendLoginEmail({
       to: input.email,

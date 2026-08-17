@@ -8,6 +8,9 @@ import {
 } from "@/lib/cancellation-notifications";
 import { getSafeErrorMessage } from "@/lib/safe-error";
 import { getQuestionCancelAvailableAt } from "@/lib/question-deadline";
+import { approveCancellationRequest } from "@/lib/cancellation-refund";
+
+export const runtime = "nodejs";
 
 export async function POST(
   req: Request,
@@ -117,6 +120,28 @@ export async function POST(
       },
     });
 
+    if (question.answers.length === 0) {
+      try {
+        const result = await approveCancellationRequest({
+          requestId: requestRecord.id,
+          adminNote: "回答0件のため自動承認",
+        });
+
+        return NextResponse.json({
+          ok: true,
+          autoApproved: true,
+          message: "回答がないため自動承認し、質問報酬を返金しました。",
+          requestId: requestRecord.id,
+          refundedAmount: result.refundedAmount,
+        });
+      } catch (error) {
+        console.error("Automatic question cancellation approval failed:", {
+          message: getSafeErrorMessage(error),
+          requestId: requestRecord.id,
+        });
+      }
+    }
+
     const rewardBreakdown = getQuestionRewardBreakdown(question.rewardAmount);
     const requesterProfile = await prisma.user.findUnique({
       where: { id: user.id },
@@ -149,7 +174,11 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      message: "キャンセル申請を受け付けました。",
+      autoApprovalPending: question.answers.length === 0,
+      message:
+        question.answers.length === 0
+          ? "自動返金処理を完了できなかったため、運営確認へ切り替えました。"
+          : "キャンセル申請を受け付けました。",
       requestId: requestRecord.id,
     });
   } catch (error) {

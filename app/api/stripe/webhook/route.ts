@@ -5,6 +5,7 @@ import { verifyBestViewCheckoutSession } from "@/lib/best-view-payment";
 import { verifyQuestionCheckoutSession } from "@/lib/question-payment";
 import { verifyNegotiationCheckoutSession } from "@/lib/negotiation-payment";
 import { syncStripeConnectAccountStatusFromAccount } from "@/lib/stripe-connect";
+import { verifyBoostCheckoutSession } from "@/lib/boost-payment";
 
 export const runtime = "nodejs";
 
@@ -235,6 +236,18 @@ export async function POST(req: Request) {
 
         if (!result.isPaid) {
           return new NextResponse(null, { status: 200 });
+        }
+        return new NextResponse(null, { status: 200 });
+      }
+
+      if (kind === "question_boost") {
+        const result = await verifyBoostCheckoutSession({ session });
+        if (!result.ok) {
+          logWebhookIssue({
+            eventType: event.type,
+            kind,
+            reason: result.reason,
+          });
         }
         return new NextResponse(null, { status: 200 });
       }

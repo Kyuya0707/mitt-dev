@@ -7,20 +7,16 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const CATEGORY_NAMES = [
-  "車・バイク",
-  "恋愛・結婚",
-  "仕事・キャリア",
-  "転職・就職",
-  "お金・投資",
-  "副業・起業",
-  "学習・資格",
+  "育児・子育て",
+  "転職・キャリア",
   "プログラミング・IT",
-  "ガジェット・家電",
-  "趣味・エンタメ",
-  "健康・ダイエット",
-  "美容・ファッション",
-  "子育て・家族",
-  "その他",
+  "仕事術・職場の悩み",
+  "学習・資格",
+  "恋愛・人間関係",
+  "暮らし・家事",
+  "旅行・地域情報",
+  "趣味・創作",
+  "商品選び・購入体験",
 ];
 
 async function main() {
@@ -30,15 +26,6 @@ async function main() {
       update: {},
       create: { name },
     });
-  }
-
-  const fallbackCategory = await prisma.category.findUnique({
-    where: { name: "その他" },
-    select: { id: true },
-  });
-
-  if (!fallbackCategory) {
-    throw new Error("fallback category not found");
   }
 
   const legacyCategories = await prisma.category.findMany({
@@ -55,17 +42,6 @@ async function main() {
   );
 
   if (legacyCategoryIds.length > 0) {
-    await prisma.question.updateMany({
-      where: {
-        categoryId: {
-          in: legacyCategoryIds,
-        },
-      },
-      data: {
-        categoryId: fallbackCategory.id,
-      },
-    });
-
     await prisma.category.deleteMany({
       where: {
         id: {

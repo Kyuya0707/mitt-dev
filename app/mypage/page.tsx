@@ -4,6 +4,9 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { ensurePrismaUser } from "@/lib/ensure-prisma-user";
 import NotificationSettingsSection from "./NotificationSettingsSection";
 import PpConsentSection from "./PpConsentSection";
+import AgeConfirmationSection from "./AgeConfirmationSection";
+import TwoFactorAuthSection from "./TwoFactorAuthSection";
+import AccountDeletionSection from "./AccountDeletionSection";
 import StripeConnectSection from "./StripeConnectSection";
 import LogoutButton from "./LogoutButton";
 import { syncStripeConnectAccountStatus } from "@/lib/stripe-connect";
@@ -131,6 +134,7 @@ export default async function MyPage({
       ageGroup: meta.age_group,
       gender: meta.gender,
       interests: Array.isArray(meta.interests) ? meta.interests : [],
+      bio: meta.bio,
     });
     ensureDuration = durationMs(ensureStart);
   } catch (syncError) {
@@ -175,6 +179,7 @@ export default async function MyPage({
       gender: true,
       displayId: true,
       ppConsentAt: true,
+      ageConfirmedAt: true,
       interestCategories: true,
       stripeAccountId: true,
       stripeConnectOnboardingCompleted: true,
@@ -336,6 +341,11 @@ export default async function MyPage({
               title="購入履歴を見る"
               description="質問投稿決済やBEST閲覧購入の履歴を確認できます。"
             />
+            <ActionLink
+              href="/mypage/appeals"
+              title="異議申立て"
+              description="運営措置と審査結果を確認します。"
+            />
           </div>
 
           <MyPageCard title="プロフィール・基本情報">
@@ -483,16 +493,24 @@ export default async function MyPage({
             </Link>
           </MyPageCard>
 
-          <NotificationSettingsSection />
+      <TwoFactorAuthSection />
+      <NotificationSettingsSection />
 
           <MyPageCard
             title="同意状況"
-            description="副業・税務に関する同意状況を確認できます。"
+            description="年齢と副業・税務に関する同意状況を確認できます。"
           >
-            <PpConsentSection
-              ppConsentAt={ppConsentAt ? ppConsentAt.toISOString() : null}
-              redirectTo="/mypage"
-            />
+            <div className="space-y-6">
+              <AgeConfirmationSection
+                ageConfirmedAt={dbUser.ageConfirmedAt?.toISOString() ?? null}
+              />
+              <div className="border-t border-gray-200 pt-6">
+                <PpConsentSection
+                  ppConsentAt={ppConsentAt ? ppConsentAt.toISOString() : null}
+                  redirectTo="/mypage"
+                />
+              </div>
+            </div>
           </MyPageCard>
 
           <MyPageCard
@@ -509,6 +527,7 @@ export default async function MyPage({
               <div>
                 <LogoutButton />
               </div>
+              <AccountDeletionSection />
             </div>
           </MyPageCard>
         </div>

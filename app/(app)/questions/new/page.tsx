@@ -6,16 +6,26 @@ import Link from "next/link";
 import { createClientBrowser } from "@/lib/supabase-browser";
 import { ReactSortable } from "react-sortablejs";
 import { getBestViewRevenueBreakdown } from "@/lib/best-view-breakdown";
-import { MAX_VIEWER_PRICE_JPY } from "@/lib/viewer-price";
+import {
+  MAX_VIEWER_PRICE_JPY,
+  MIN_VIEWER_PRICE_JPY,
+} from "@/lib/viewer-price";
 import { toJapaneseErrorMessage } from "@/lib/errors";
 import { getQuestionRewardBreakdown } from "@/lib/reward-breakdown";
 import { trackGA4BeginCheckout } from "@/lib/ga";
 import {
   MAX_ANSWER_DEADLINE_DAYS,
+  MIN_ANSWER_DEADLINE_DAYS,
+  getMinimumAnswerDeadline,
   toDatetimeLocalValue,
 } from "@/lib/question-deadline";
 import type { User } from "@supabase/supabase-js";
 import PpConsentSection from "@/app/mypage/PpConsentSection";
+import {
+  ACCEPTED_UPLOAD_IMAGE_TYPES,
+  MAX_UPLOAD_IMAGE_BYTES,
+  MAX_UPLOAD_IMAGE_COUNT,
+} from "@/lib/image-constraints";
 
 const REWARD_PRESETS = [500, 1000, 3000, 5000];
 
@@ -52,8 +62,7 @@ export default function NewQuestionPage() {
   >("idle");
   const [ppConsentAt, setPpConsentAt] = useState<string | null>(null);
   const [consentLoading, setConsentLoading] = useState(false);
-
-  const MAX_IMAGES = 5;
+  const [noAiConfirmed, setNoAiConfirmed] = useState(false);
 
   // ----------------------------
   // ② ログイン取得 & カテゴリ取得
@@ -133,8 +142,18 @@ export default function NewQuestionPage() {
   const handleImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
 
-    if (imageItems.length + selected.length > MAX_IMAGES) {
-      setErrorMsg(`画像は最大 ${MAX_IMAGES} 枚までです`);
+    if (imageItems.length + selected.length > MAX_UPLOAD_IMAGE_COUNT) {
+      setErrorMsg(`画像は最大${MAX_UPLOAD_IMAGE_COUNT}枚までです`);
+      return;
+    }
+
+    const invalidFile = selected.find(
+      (file) =>
+        !(ACCEPTED_UPLOAD_IMAGE_TYPES as readonly string[]).includes(file.type) ||
+        file.size > MAX_UPLOAD_IMAGE_BYTES
+    );
+    if (invalidFile) {
+      setErrorMsg("画像は5MB以下のJPEG・PNG・WebPを選択してください");
       return;
     }
 
@@ -177,6 +196,7 @@ export default function NewQuestionPage() {
       formData.append("rewardAmount", String(rewardAmount));
       formData.append("viewerPrice", String(viewerPrice));
       formData.append("answerDeadline", answerDeadline);
+      formData.append("noAiConfirmed", String(noAiConfirmed));
       imageItems.forEach((item) => formData.append("images", item.file));
 
       // ① まず質問をDBに保存
@@ -347,20 +367,21 @@ export default function NewQuestionPage() {
             {/* 回答期限 */}
             <div>
               <label className="block mb-1 font-medium">
-                回答期限（任意）
+                回答期限（必須）
               </label>
               <input
                 type="datetime-local"
                 className="w-full border p-2 rounded text-black"
                 value={answerDeadline}
                 onChange={(e) => setAnswerDeadline(e.target.value)}
-                min={toDatetimeLocalValue(new Date())}
+                min={toDatetimeLocalValue(getMinimumAnswerDeadline())}
                 max={toDatetimeLocalValue(
                   new Date(Date.now() + MAX_ANSWER_DEADLINE_DAYS * 24 * 60 * 60 * 1000)
                 )}
+                required
               />
               <p className="mt-1 text-xs text-gray-500">
-                この期限を過ぎると、質問者はキャンセル申請できるようになります。未設定の場合は、投稿から2週間後にキャンセル申請できます。
+                回答期限は投稿から{MIN_ANSWER_DEADLINE_DAYS}日後以降で設定してください。期限後もBEST選択またはキャンセル承認までは回答を受け付けます。
               </p>
             </div>
 
@@ -439,13 +460,13 @@ export default function NewQuestionPage() {
                   onChange={(e) => handleViewerPriceChange(e.target.value)}
                   onInvalid={(e) => {
                     e.currentTarget.setCustomValidity(
-                      "BEST閲覧価格は1円以上100,000円以下の整数で入力してください"
+                      "BEST閲覧価格は100円以上100,000円以下の整数で入力してください"
                     );
                   }}
                   onInput={(e) => {
                     e.currentTarget.setCustomValidity("");
                   }}
-                  min={1}
+                  min={MIN_VIEWER_PRICE_JPY}
                   max={MAX_VIEWER_PRICE_JPY}
                   step={1}
                   required
@@ -455,7 +476,8 @@ export default function NewQuestionPage() {
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                BEST回答の閲覧時に購入者へ請求する金額です（1円〜
+                BEST回答の閲覧時に購入者へ請求する金額です（
+                {MIN_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円〜
                 {MAX_VIEWER_PRICE_JPY.toLocaleString("ja-JP")}円、1円単位）
               </p>
               <p className="mt-1 text-xs text-gray-500">
@@ -464,14 +486,20 @@ export default function NewQuestionPage() {
               {viewerPrice > 0 && (
                 <div className="mt-3 rounded-xl border border-yellow-100 bg-yellow-50 p-4 text-sm text-gray-700">
                   <p className="mb-3 text-gray-700">
-                    BEST回答は有料公開できます。閲覧料金は質問者へ還元されます。
+                    BEST回答は有料公開でき、質問者とBEST回答者へ収益を還元します。
                   </p>
                   <div className="font-semibold text-gray-900">BEST閲覧料の分配</div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <div className="rounded-lg bg-white px-3 py-2">
                       <div className="text-xs text-gray-500">質問者への報酬</div>
                       <div className="font-semibold text-gray-900">
                         {formatYen(bestViewBreakdown.questionOwnerAmount)}円
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-white px-3 py-2">
+                      <div className="text-xs text-gray-500">BEST回答者への報酬</div>
+                      <div className="font-semibold text-gray-900">
+                        {formatYen(bestViewBreakdown.answerOwnerAmount)}円
                       </div>
                     </div>
                     <div className="rounded-lg bg-white px-3 py-2">
@@ -489,13 +517,15 @@ export default function NewQuestionPage() {
 
             {/* 画像 */}
             <div>
-              <label className="block mb-1 font-medium">画像（最大5枚）</label>
+              <label className="block mb-1 font-medium">
+                画像（最大{MAX_UPLOAD_IMAGE_COUNT}枚、1枚5MBまで）
+              </label>
 
               <label className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 inline-block">
                 画像を選択
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ACCEPTED_UPLOAD_IMAGE_TYPES.join(",")}
                   multiple
                   className="hidden"
                   onChange={handleImageAdd}
@@ -530,8 +560,23 @@ export default function NewQuestionPage() {
               )}
             </div>
 
+            <label className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={noAiConfirmed}
+                onChange={(event) => setNoAiConfirmed(event.target.checked)}
+                required
+                className="mt-1"
+              />
+              <span>
+                投稿内容にAIによる生成・要約・翻訳・校正・編集を使用していません。
+              </span>
+            </label>
+
             <button
-              disabled={loading || consentLoading || !canSubmitQuestion}
+              disabled={
+                loading || consentLoading || !canSubmitQuestion || !noAiConfirmed
+              }
               className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading

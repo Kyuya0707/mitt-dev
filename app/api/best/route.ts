@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getUserMutationRestriction } from "@/lib/user-access";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import {
@@ -16,6 +17,10 @@ export async function POST(req: Request) {
         { error: "ログインが必要です" },
         { status: 401 }
       );
+    }
+    const restriction = await getUserMutationRestriction(user.id);
+    if (restriction) {
+      return NextResponse.json({ error: restriction }, { status: 403 });
     }
 
     const { answerId, questionId } = await req.json();
@@ -65,6 +70,9 @@ export async function POST(req: Request) {
             stripeAccountId: true,
           },
         },
+        negotiation: {
+          select: { status: true, submittedAt: true },
+        },
       },
     });
 
@@ -79,6 +87,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "この質問に紐づく回答ではありません" },
         { status: 400 }
+      );
+    }
+
+    if (answer.negotiation && !answer.negotiation.submittedAt) {
+      return NextResponse.json(
+        { error: "交渉回答が投稿されるまではBESTに選べません" },
+        { status: 409 }
       );
     }
 
@@ -105,6 +120,7 @@ export async function POST(req: Request) {
     const relatedPurchase = await prisma.purchase.findFirst({
       where: {
         questionId,
+        kind: "question_post",
         status: "PAID",
       },
       orderBy: {
@@ -181,6 +197,16 @@ export async function POST(req: Request) {
     });
 
     if (createdPayout) {
+      await safeCreateUserNotification({
+        userId: answerUserId,
+        type: NOTIFICATION_TYPES.PAYOUT_SCHEDULED,
+        message: `BEST回答報酬${createdPayout.amount.toLocaleString("ja-JP")}円をサービス内残高へ反映しました。`,
+        url: "/mypage/rewards",
+        data: { questionId, answerId },
+        dedupeKey: `payout-scheduled:question-reward:${answerId}`,
+        mandatoryEmail: true,
+        context: "question_reward_scheduled",
+      });
       await sendAdminPayoutNotification({
         payoutType: "question_reward",
         amount: createdPayout.amount,

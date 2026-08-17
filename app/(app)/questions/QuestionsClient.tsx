@@ -24,6 +24,9 @@ type QuestionListItem = {
     name: string;
   } | null;
   answerCount: number;
+  boostCount: number;
+  boostExpiresAt: string | null;
+  isBoosted: boolean;
 };
 
 function highlight(text: string, keyword: string) {
@@ -89,6 +92,8 @@ type QuestionsClientProps = {
     sort: string;
     deadlineFilter: string;
     excludeBestSelected: boolean;
+    minReward: string;
+    maxReward: string;
   };
 };
 
@@ -110,6 +115,8 @@ export default function QuestionsClient({
   const [excludeBestSelected, setExcludeBestSelected] = useState(
     initialFilters.excludeBestSelected
   );
+  const [minReward, setMinReward] = useState(initialFilters.minReward);
+  const [maxReward, setMaxReward] = useState(initialFilters.maxReward);
   const [popularTags, setPopularTags] = useState<string[]>(
     extractPopularTags(initialData.items)
   );
@@ -129,6 +136,8 @@ export default function QuestionsClient({
     nextSort: string;
     nextDeadlineFilter: string;
     nextExcludeBestSelected: boolean;
+    nextMinReward: string;
+    nextMaxReward: string;
   }) => {
     const params = new URLSearchParams();
     if (paramsInput.nextQuery) params.set("q", paramsInput.nextQuery);
@@ -140,6 +149,8 @@ export default function QuestionsClient({
       params.set("deadlineFilter", paramsInput.nextDeadlineFilter);
     }
     if (paramsInput.nextExcludeBestSelected) params.set("excludeBest", "1");
+    if (paramsInput.nextMinReward) params.set("minReward", paramsInput.nextMinReward);
+    if (paramsInput.nextMaxReward) params.set("maxReward", paramsInput.nextMaxReward);
     if (paramsInput.nextPage > 1) params.set("page", String(paramsInput.nextPage));
 
     const nextUrl = params.toString()
@@ -157,6 +168,8 @@ export default function QuestionsClient({
     nextSort = sort,
     nextDeadlineFilter = deadlineFilter,
     nextExcludeBestSelected = excludeBestSelected,
+    nextMinReward = minReward,
+    nextMaxReward = maxReward,
   }: {
     nextPage?: number;
     append?: boolean;
@@ -165,6 +178,8 @@ export default function QuestionsClient({
     nextSort?: string;
     nextDeadlineFilter?: string;
     nextExcludeBestSelected?: boolean;
+    nextMinReward?: string;
+    nextMaxReward?: string;
   }) => {
     if (append) {
       setLoadingMore(true);
@@ -185,6 +200,8 @@ export default function QuestionsClient({
         params.set("deadlineFilter", nextDeadlineFilter);
       }
       if (nextExcludeBestSelected) params.set("excludeBest", "true");
+      if (nextMinReward) params.set("minReward", nextMinReward);
+      if (nextMaxReward) params.set("maxReward", nextMaxReward);
 
       const res = await fetch(`/api/questions?${params.toString()}`);
       const data = (await res.json()) as {
@@ -215,6 +232,8 @@ export default function QuestionsClient({
         nextSort,
         nextDeadlineFilter,
         nextExcludeBestSelected,
+        nextMinReward,
+        nextMaxReward,
       });
     } catch {
       setErrorMsg("質問一覧の取得に失敗しました。");
@@ -261,6 +280,8 @@ export default function QuestionsClient({
       nextSort: sort,
       nextDeadlineFilter: deadlineFilter,
       nextExcludeBestSelected: excludeBestSelected,
+      nextMinReward: minReward,
+      nextMaxReward: maxReward,
     });
   };
 
@@ -369,6 +390,25 @@ export default function QuestionsClient({
             <option value="expired_deadline">回答期限終了</option>
           </select>
 
+          <input
+            type="number"
+            min={0}
+            value={minReward}
+            onChange={(e) => setMinReward(e.target.value)}
+            placeholder="最低報酬"
+            aria-label="最低報酬額"
+            className="w-full rounded border px-3 py-2 lg:w-28"
+          />
+          <input
+            type="number"
+            min={0}
+            value={maxReward}
+            onChange={(e) => setMaxReward(e.target.value)}
+            placeholder="最高報酬"
+            aria-label="最高報酬額"
+            className="w-full rounded border px-3 py-2 lg:w-28"
+          />
+
           <label className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm text-gray-700 whitespace-nowrap lg:flex-none lg:shrink-0">
             <input
               type="checkbox"
@@ -386,6 +426,8 @@ export default function QuestionsClient({
               setSort("latest");
               setDeadlineFilter("all");
               setExcludeBestSelected(false);
+              setMinReward("");
+              setMaxReward("");
               void fetchQuestions({
                 nextPage: 1,
                 nextQuery: "",
@@ -393,6 +435,8 @@ export default function QuestionsClient({
                 nextSort: "latest",
                 nextDeadlineFilter: "all",
                 nextExcludeBestSelected: false,
+                nextMinReward: "",
+                nextMaxReward: "",
               });
             }}
             className="whitespace-nowrap px-2 py-2 text-sm text-gray-600 underline hover:text-gray-800 lg:flex-none lg:shrink-0"
@@ -423,8 +467,17 @@ export default function QuestionsClient({
           <Link
             key={q.id}
             href={`/questions/${q.id}`}
-            className="block p-5 border rounded-lg shadow-sm hover:shadow-md transition bg-white"
+            className={`block rounded-lg border p-5 shadow-sm transition hover:shadow-md ${
+              q.isBoosted
+                ? "border-orange-300 bg-orange-50 ring-2 ring-orange-100"
+                : "bg-white"
+            }`}
           >
+            {q.isBoosted && (
+              <span className="mb-2 inline-flex rounded-full bg-orange-600 px-3 py-1 text-xs font-bold text-white">
+                🔥 Boost中
+              </span>
+            )}
             <h2
               className="text-lg font-semibold text-gray-900"
               dangerouslySetInnerHTML={{ __html: highlight(q.title, query) }}
