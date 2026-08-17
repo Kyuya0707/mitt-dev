@@ -96,6 +96,14 @@ export default function AnswerCard({
 
   void markRead;
 
+  if (ans.locked && !isBest) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-gray-700">回答済み</p>
+      </div>
+    );
+  }
+
   const handleBest = async () => {
     try {
       const res = await fetch("/api/best", {
@@ -542,26 +550,28 @@ export default function AnswerCard({
         </>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={handleLike}
-          className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
-        >
-          👍 いいね <span className="ml-1 text-gray-700">{likes}</span>
-        </button>
-
-        {canQuote && (
+      {!ans.locked && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={onQuote}
-            className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50 text-blue-600"
+            disabled={isLoading}
+            onClick={handleLike}
+            className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
           >
-            引用して回答
+            👍 いいね <span className="ml-1 text-gray-700">{likes}</span>
           </button>
-        )}
-      </div>
+
+          {canQuote && (
+            <button
+              type="button"
+              onClick={onQuote}
+              className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50 text-blue-600"
+            >
+              引用して回答
+            </button>
+          )}
+        </div>
+      )}
 
       {isQuestionOwner && isBest && (
         <div className="mt-4">

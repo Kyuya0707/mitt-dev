@@ -319,19 +319,22 @@ export default async function Page({
   const answersWithLock: QuestionAnswer[] = question.answers.map((answer) => {
     const isBestAnswer = answer.id === question.bestAnswerId;
     const isAnswerOwner = !!authUser && answer.userId === authUser.id;
+    const isAnswerParticipant = isAuthor || isAnswerOwner;
     const canViewThisAnswer =
-      !isBestAnswer ||
-      isAuthor ||
-      isAnswerOwner ||
-      hasPurchasedBestAnswer;
-    const isLockedBest = isBestAnswer && !canViewThisAnswer;
+      isAnswerParticipant || (isBestAnswer && hasPurchasedBestAnswer);
+    const isLocked = !canViewThisAnswer;
 
-    if (isLockedBest) {
+    if (isLocked) {
       return {
         ...answer,
-        reads: answer.reads.filter((read) => read.userId === (authUser?.id ?? "")),
+        userId: null,
+        user: null,
         content: null,
+        pitch: null,
+        images: [],
+        reads: [],
         comments: null,
+        negotiation: null,
         locked: true,
       };
     }
@@ -339,6 +342,9 @@ export default async function Page({
     return {
       ...answer,
       reads: answer.reads.filter((read) => read.userId === (authUser?.id ?? "")),
+      comments: isAnswerParticipant ? answer.comments : null,
+      negotiation: isAnswerParticipant ? answer.negotiation : null,
+      pitch: isAnswerParticipant ? answer.pitch : null,
       locked: false,
     };
   });

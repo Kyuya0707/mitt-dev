@@ -119,19 +119,21 @@ export async function GET(
         : false;
     const answersWithLock: QuestionAnswer[] = question.answers.map((answer) => {
       const isBestAnswer = answer.id === question.bestAnswerId;
+      const isAnswerOwner = !!authUser && answer.userId === authUser.id;
+      const isAnswerParticipant = isAuthor || isAnswerOwner;
       const canViewThisAnswer =
-        !isBestAnswer ||
-        isAuthor ||
-        (!!authUser && answer.userId === authUser.id) ||
-        hasPurchasedBestAnswer;
-      const isLockedBest = isBestAnswer && !canViewThisAnswer;
+        isAnswerParticipant || (isBestAnswer && hasPurchasedBestAnswer);
+      const isLocked = !canViewThisAnswer;
 
-      if (isLockedBest) {
+      if (isLocked) {
         return {
           ...answer,
-          reads: [],
+          userId: null,
+          user: null,
           content: null,
+          pitch: null,
           images: [],
+          reads: [],
           comments: null,
           locked: true,
           negotiation: null,
@@ -141,6 +143,8 @@ export async function GET(
       return {
         ...answer,
         reads: [],
+        comments: isAnswerParticipant ? answer.comments : null,
+        pitch: isAnswerParticipant ? answer.pitch : null,
         locked: false,
         negotiation: null,
       };
