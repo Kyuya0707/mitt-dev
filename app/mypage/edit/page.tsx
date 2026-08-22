@@ -166,11 +166,15 @@ export default function MyPageEdit() {
       let newAvatarUrl = avatarUrl;
 
       if (avatarFile) {
-        const fileName = `${user.id}/${Date.now()}_${avatarFile.name}`;
+        const safeOriginalName = avatarFile.name.replace(
+          /[^A-Za-z0-9._-]/g,
+          "_"
+        );
+        const fileName = `${user.id}/${Date.now()}_${safeOriginalName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("profiles")
-          .upload(fileName, avatarFile, { upsert: true });
+          .upload(fileName, avatarFile, { upsert: false });
 
         if (uploadError) {
           setErrorMsg("画像アップロードに失敗しました: " + uploadError.message);

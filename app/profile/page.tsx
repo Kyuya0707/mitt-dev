@@ -171,12 +171,21 @@ export default function ProfilePage() {
 
     // ①画像アップロード（新しい画像が選ばれている場合）
     if (avatarFile) {
-      const safeFileName = generateSafeFileName(avatarFile.name);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      const safeFileName = `${user.id}/${generateSafeFileName(avatarFile.name)}`;
 
       const { error: uploadError } = await supabase.storage
         .from("profiles")
         .upload(safeFileName, avatarFile, {
-          upsert: true,
+          upsert: false,
           contentType: avatarFile.type,
         });
 

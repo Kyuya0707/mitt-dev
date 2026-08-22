@@ -359,7 +359,7 @@ export async function POST(req: Request) {
           .replace(/\./g, "_")
           .replace(/[^A-Za-z0-9_]/g, "_");
 
-        const fileName = `questions/${newQuestion.id}_${index}_${safeName}`;
+        const fileName = `${prismaUser.id}/${newQuestion.id}_${index}_${safeName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("question-images")

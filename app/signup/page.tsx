@@ -218,9 +218,6 @@ export default function SignupPage() {
   const [prefecture, setPrefecture] = useState(initialDraft.prefecture);
   const [interests, setInterests] = useState<string[]>(initialDraft.interests);
 
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-
   const [errorMsg, setErrorMsg] = useState("");
 
   // ✅ PP同意
@@ -231,7 +228,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [signupCompletedEmail, setSignupCompletedEmail] = useState("");
   const [signupPhase, setSignupPhase] = useState<
-    "idle" | "username" | "avatar" | "signup"
+    "idle" | "username" | "signup"
   >("idle");
 
   const signupDraft = useMemo(
@@ -277,14 +274,6 @@ export default function SignupPage() {
       JSON.stringify(signupDraft)
     );
   }, [signupCompletedEmail, signupDraft]);
-
-  // 画像選択
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
-  };
 
   // カテゴリーのチェック変更
   const toggleInterest = (item: string) => {
@@ -358,32 +347,8 @@ export default function SignupPage() {
       return;
     }
 
-    // 1) まずは画像をアップロード（任意）
-    let avatarUrl: string | null = null;
-
-    if (avatarFile) {
-      setSignupPhase("avatar");
-      const fileName = `${Date.now()}_${avatarFile.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("profiles")
-        .upload(fileName, avatarFile, { upsert: true });
-
-      if (uploadError) {
-        setErrorMsg("画像アップロードに失敗しました");
-        setLoading(false);
-        setSignupPhase("idle");
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("profiles")
-        .getPublicUrl(fileName);
-
-      avatarUrl = publicUrlData.publicUrl;
-    }
-
-    // 2) サインアップ（確認メール）
+    // 未認証ユーザーからのStorage書き込みを避けるため、
+    // プロフィール画像は登録・ログイン後に設定する。
     setSignupPhase("signup");
     const fullName = `${lastName} ${firstName}`;
     const redirectBase =
@@ -403,7 +368,7 @@ export default function SignupPage() {
           website,
           prefecture,
           interests,
-          avatar_url: avatarUrl,
+          avatar_url: null,
           pp_consent_at: new Date().toISOString(),
           pp_consent_version: PP_CONSENT_VERSION,
           age_confirmed_at: new Date().toISOString(),
@@ -464,32 +429,9 @@ export default function SignupPage() {
       <h1 className="text-2xl font-bold mb-6">新規登録</h1>
 
       <form onSubmit={handleSignup} className="space-y-6">
-        {/* プロフィール画像 */}
-        <div className="flex flex-col items-center">
-          <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 mb-2">
-            {avatarPreview ? (
-              <img
-                src={avatarPreview}
-                className="w-full h-full object-cover"
-                alt="プロフィール画像プレビュー"
-              />
-            ) : (
-              <span className="text-gray-500 flex items-center justify-center h-full">
-                No Image
-              </span>
-            )}
-          </div>
-
-          <label className="cursor-pointer px-3 py-2 bg-gray-100 text-sm rounded border">
-            画像を選択
-            <input
-              type="file"
-              className="hidden"
-              accept="image/*"
-              onChange={handleImageSelect}
-            />
-          </label>
-        </div>
+        <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          プロフィール画像は、登録・ログイン後にマイページから設定できます。
+        </p>
 
         {/* 姓 */}
         <div>
@@ -720,7 +662,6 @@ export default function SignupPage() {
         {loading && signupPhase !== "idle" ? (
           <p className="text-sm text-gray-600">
             {signupPhase === "username" && "ユーザー名を確認中..."}
-            {signupPhase === "avatar" && "画像をアップロード中..."}
             {signupPhase === "signup" && "登録情報を送信中..."}
           </p>
         ) : null}
