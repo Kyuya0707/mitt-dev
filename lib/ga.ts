@@ -8,6 +8,7 @@ export type GA4EventParamsMap = {
   answer_posted: { value: 1 };
   begin_checkout: { checkout_type: GA4CheckoutType; amount?: number };
   purchase: {
+    transaction_id: string;
     purchase_type: GA4CheckoutType;
     value?: number;
     currency?: "JPY";
@@ -149,6 +150,7 @@ export function trackGA4PurchaseOnce(input: {
 
   const amount = getStoredCheckoutAmount(input.purchaseType) ?? input.fallbackAmount;
   const params: GA4EventParamsMap["purchase"] = {
+    transaction_id: input.sessionId,
     purchase_type: input.purchaseType,
     currency: "JPY",
   };
