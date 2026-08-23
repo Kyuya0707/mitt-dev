@@ -18,8 +18,11 @@ export type GA4EventParamsMap = {
 
 type GtagFunction = (...args: unknown[]) => void;
 
+export const GA4_READY_EVENT = "knowvalue:ga-ready";
+
 const CHECKOUT_AMOUNT_KEY_PREFIX = "ga4_checkout_amount:";
 const PURCHASE_SENT_KEY_PREFIX = "ga4_purchase_sent:";
+const GA4_TRACKED_HOSTNAMES = new Set(["knowvalue.jp", "www.knowvalue.jp"]);
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -27,6 +30,13 @@ function isFiniteNumber(value: unknown): value is number {
 
 function getGtag() {
   if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (
+    navigator.webdriver ||
+    !GA4_TRACKED_HOSTNAMES.has(window.location.hostname)
+  ) {
     return null;
   }
 
@@ -40,13 +50,14 @@ export function trackGA4Event<E extends keyof GA4EventParamsMap>(
 ) {
   const gtag = getGtag();
   if (!gtag) {
-    return;
+    return false;
   }
 
   try {
     gtag("event", eventName, params);
+    return true;
   } catch {
-    // noop
+    return false;
   }
 }
 
@@ -146,7 +157,9 @@ export function trackGA4PurchaseOnce(input: {
     params.value = Math.trunc(amount);
   }
 
-  trackGA4Event("purchase", params);
+  if (!trackGA4Event("purchase", params)) {
+    return;
+  }
 
   try {
     window.sessionStorage.setItem(sentKey, "1");

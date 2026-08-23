@@ -1,23 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { GA4_READY_EVENT, trackGA4Event } from "@/lib/ga";
 
 type QuestionPostedConversionTrackerProps = {
   shouldTrack: boolean;
   sessionId?: string | null;
 };
-
-type GtagFunction = (...args: unknown[]) => void;
-
-function getGtag() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const gtag = (window as Window & { gtag?: GtagFunction }).gtag;
-
-  return typeof gtag === "function" ? gtag : null;
-}
 
 export default function QuestionPostedConversionTracker({
   shouldTrack,
@@ -28,22 +17,30 @@ export default function QuestionPostedConversionTracker({
       return;
     }
 
-    const storageKey = `ga4_question_posted_${sessionId}`;
-    if (window.sessionStorage.getItem(storageKey)) {
-      return;
-    }
+    const trackQuestionPosted = () => {
+      const storageKey = `ga4_question_posted_${sessionId}`;
+      if (window.sessionStorage.getItem(storageKey)) {
+        return;
+      }
 
-    const gtag = getGtag();
-    if (!gtag) {
-      return;
-    }
+      if (
+        !trackGA4Event("question_posted", {
+          value: 1,
+          currency: "JPY",
+        })
+      ) {
+        return;
+      }
 
-    gtag("event", "question_posted", {
-      value: 1,
-      currency: "JPY",
-    });
+      window.sessionStorage.setItem(storageKey, "1");
+    };
 
-    window.sessionStorage.setItem(storageKey, "1");
+    trackQuestionPosted();
+    window.addEventListener(GA4_READY_EVENT, trackQuestionPosted);
+
+    return () => {
+      window.removeEventListener(GA4_READY_EVENT, trackQuestionPosted);
+    };
   }, [sessionId, shouldTrack]);
 
   return null;
