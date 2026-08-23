@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClientBrowser } from "@/lib/supabase-browser";
+import {
+  isPasswordValid,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_REQUIREMENTS_TEXT,
+} from "@/lib/password-policy";
 
 export default function ResetPasswordPage() {
   const supabase = createClientBrowser();
@@ -29,8 +34,8 @@ export default function ResetPasswordPage() {
     setErrorMsg("");
 
     try {
-      if (password.length < 6) {
-        setErrorMsg("パスワードは6文字以上で入力してください。");
+      if (!isPasswordValid(password)) {
+        setErrorMsg(`パスワードは${PASSWORD_REQUIREMENTS_TEXT}`);
         return;
       }
 
@@ -72,10 +77,13 @@ export default function ResetPasswordPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={MIN_PASSWORD_LENGTH}
             autoComplete="new-password"
             disabled={!ready}
           />
+          <p className="mt-1 text-xs text-gray-600">
+            {PASSWORD_REQUIREMENTS_TEXT}
+          </p>
         </div>
 
         <div>
@@ -86,7 +94,7 @@ export default function ResetPasswordPage() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={MIN_PASSWORD_LENGTH}
             autoComplete="new-password"
             disabled={!ready}
           />

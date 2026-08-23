@@ -14,6 +14,11 @@ import {
 } from "@/lib/profile-demographics";
 import { validateUsername } from "@/lib/username";
 import { trackGA4SignUp } from "@/lib/ga";
+import {
+  isPasswordValid,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_REQUIREMENTS_TEXT,
+} from "@/lib/password-policy";
 
 const INTEREST_OPTIONS = [...CATEGORY_NAMES];
 
@@ -295,6 +300,13 @@ export default function SignupPage() {
     setLoading(true);
     setSignupPhase("username");
 
+    if (!isPasswordValid(password)) {
+      setErrorMsg(`パスワードは${PASSWORD_REQUIREMENTS_TEXT}`);
+      setLoading(false);
+      setSignupPhase("idle");
+      return;
+    }
+
     const usernameValidation = validateUsername(username);
     if (!usernameValidation.ok) {
       setErrorMsg(usernameValidation.message);
@@ -524,7 +536,12 @@ export default function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            minLength={MIN_PASSWORD_LENGTH}
+            autoComplete="new-password"
           />
+          <p className="mt-1 text-xs text-gray-600">
+            {PASSWORD_REQUIREMENTS_TEXT}
+          </p>
         </div>
 
         {/* 自己紹介 */}
