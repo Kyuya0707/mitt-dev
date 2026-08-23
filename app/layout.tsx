@@ -24,8 +24,36 @@ export default function RootLayout({
             {`
               (() => {
                 const trackedHostnames = new Set(['knowvalue.jp', 'www.knowvalue.jp']);
+                const analyticsStorageKey = 'knowvalue:analytics-opt-out';
+                const analyticsMode = new URLSearchParams(window.location.search).get('kv_ga');
+                let explicitlyOptedOut = false;
+
+                try {
+                  if (analyticsMode === 'off') {
+                    window.localStorage.setItem(analyticsStorageKey, '1');
+                  } else if (analyticsMode === 'on') {
+                    window.localStorage.removeItem(analyticsStorageKey);
+                  }
+
+                  explicitlyOptedOut =
+                    window.localStorage.getItem(analyticsStorageKey) === '1';
+                } catch {
+                  explicitlyOptedOut = analyticsMode === 'off';
+                }
+
+                if (analyticsMode === 'off' || analyticsMode === 'on') {
+                  const cleanUrl = new URL(window.location.href);
+                  cleanUrl.searchParams.delete('kv_ga');
+                  window.history.replaceState(
+                    window.history.state,
+                    '',
+                    cleanUrl.pathname + cleanUrl.search + cleanUrl.hash,
+                  );
+                }
+
                 const disableAnalytics =
                   navigator.webdriver === true ||
+                  explicitlyOptedOut ||
                   !trackedHostnames.has(window.location.hostname);
 
                 window.__KV_GA_DISABLED__ = disableAnalytics;
