@@ -15,6 +15,11 @@ const CONNECT_BUSINESS_PROFILE = {
   mcc: "8299",
 } as const;
 
+const REQUIRED_CONNECT_CAPABILITIES = {
+  card_payments: { requested: true },
+  transfers: { requested: true },
+} satisfies Stripe.AccountCreateParams.Capabilities;
+
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
 
@@ -36,12 +41,29 @@ async function prefillConnectedAccount(
   });
 }
 
+async function requestRequiredConnectedAccountCapabilities(
+  stripe: Stripe,
+  accountId: string
+) {
+  await stripe.accounts.update(accountId, {
+    capabilities: REQUIRED_CONNECT_CAPABILITIES,
+  });
+}
+
 export function mapStripeAccountToUserUpdate(account: Stripe.Account) {
+  const cardPaymentsEnabled =
+    account.capabilities?.card_payments === "active" &&
+    Boolean(account.charges_enabled);
+  const transfersEnabled = account.capabilities?.transfers === "active";
+  const payoutsEnabled = transfersEnabled && Boolean(account.payouts_enabled);
+
   return {
     stripeConnectOnboardingCompleted:
-      Boolean(account.details_submitted) && Boolean(account.payouts_enabled),
-    stripeConnectChargesEnabled: Boolean(account.charges_enabled),
-    stripeConnectPayoutsEnabled: Boolean(account.payouts_enabled),
+      Boolean(account.details_submitted) &&
+      cardPaymentsEnabled &&
+      payoutsEnabled,
+    stripeConnectChargesEnabled: cardPaymentsEnabled,
+    stripeConnectPayoutsEnabled: payoutsEnabled,
     stripeConnectDetailsSubmitted: Boolean(account.details_submitted),
     stripeConnectRequirementsCurrentlyDue:
       account.requirements?.currently_due ?? [],
@@ -105,6 +127,11 @@ export async function ensureConnectedAccountForUser(user: StripeLikeUser) {
   }
 
   if (existingUser.stripeAccountId) {
+    await requestRequiredConnectedAccountCapabilities(
+      getStripe(),
+      existingUser.stripeAccountId
+    );
+
     try {
       await prefillConnectedAccount(getStripe(), existingUser.stripeAccountId, {
         includeBusinessType: true,
@@ -122,6 +149,7 @@ export async function ensureConnectedAccountForUser(user: StripeLikeUser) {
     type: "express",
     country: "JP",
     business_type: "individual",
+    capabilities: REQUIRED_CONNECT_CAPABILITIES,
     business_profile: CONNECT_BUSINESS_PROFILE,
     ...(user.email ? { email: user.email } : {}),
   });
