@@ -16,6 +16,9 @@ export default function AppFooter() {
         <Link href="/refund-policy" className="hover:underline">
           返金ポリシー
         </Link>
+        <Link href="/faq" className="hover:underline">
+          よくある質問
+        </Link>
         <Link href="/contact" className="hover:underline">
           お問い合わせ
         </Link>
