@@ -26,6 +26,7 @@ export const NOTIFICATION_TYPES = {
   PAYOUT_FAILED: "PAYOUT_FAILED",
   PAYOUT_TRANSFER_SCHEDULED: "PAYOUT_TRANSFER_SCHEDULED",
   BEST_VIEW_REFUNDED: "BEST_VIEW_REFUNDED",
+  PAYOUT_RECOVERY: "PAYOUT_RECOVERY",
 } as const;
 
 export type NotificationType =
@@ -90,6 +91,7 @@ const EMAIL_PREFERENCE_KEY_BY_TYPE: Record<NotificationType, EmailPreferenceKey>
   PAYOUT_FAILED: "emailOnLogin",
   PAYOUT_TRANSFER_SCHEDULED: "emailOnLogin",
   BEST_VIEW_REFUNDED: "emailOnLogin",
+  PAYOUT_RECOVERY: "emailOnLogin",
 };
 
 function formatNotificationDate(date: Date) {
@@ -140,6 +142,8 @@ function getNotificationSubject(type: NotificationType) {
       return "報酬の振込予定が確定しました";
     case NOTIFICATION_TYPES.BEST_VIEW_REFUNDED:
       return "BEST回答の購入額を返金しました";
+    case NOTIFICATION_TYPES.PAYOUT_RECOVERY:
+      return "報酬の保留・回収に関するお知らせ";
   }
 }
 

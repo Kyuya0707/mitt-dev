@@ -120,9 +120,10 @@ async function finalizeQuestionCheckoutSession(
 
   const transferGroup = buildQuestionTransferGroup(questionId);
   const stripe = getStripe();
-  const stripeChargeId = await resolveCheckoutChargeId(stripe, session).catch(
-    () => null
-  );
+  const stripeChargeId = await resolveCheckoutChargeId(stripe, session);
+  if (!stripeChargeId) {
+    return { ok: false, reason: "stripe_error" };
+  }
   const current = await prisma.question.findUnique({
     where: { id: questionId },
     select: {

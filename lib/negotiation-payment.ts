@@ -31,6 +31,7 @@ type Result =
         | "invalid_kind"
         | "negotiation_not_found"
         | "amount_mismatch"
+        | "purchase_inactive"
         | "stripe_error";
     };
 
@@ -121,9 +122,12 @@ async function finalize(
 
   const existingPurchase = await prisma.purchase.findUnique({
     where: { stripeSessionId: session.id },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (existingPurchase) {
+    if (existingPurchase.status !== "PAID") {
+      return { ok: false, reason: "purchase_inactive" };
+    }
     return {
       ok: true,
       session,
@@ -147,9 +151,10 @@ async function finalize(
   }
 
   const stripe = getStripe();
-  const stripeChargeId = await resolveCheckoutChargeId(stripe, session).catch(
-    () => null
-  );
+  const stripeChargeId = await resolveCheckoutChargeId(stripe, session);
+  if (!stripeChargeId) {
+    return { ok: false, reason: "stripe_error" };
+  }
   const transferGroup = buildNegotiationTransferGroup(negotiationId);
   const acceptedAt = new Date(session.created * 1000);
   const answerDueAt = new Date(acceptedAt.getTime() + 7 * 24 * 60 * 60 * 1000);

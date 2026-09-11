@@ -132,6 +132,13 @@ export async function POST(req: Request) {
       },
     });
 
+    if (!relatedPurchase) {
+      return NextResponse.json(
+        { error: "質問報酬の有効な決済情報が見つかりません" },
+        { status: 409 }
+      );
+    }
+
     const createdPayout = await prisma.$transaction(async (tx) => {
       await tx.question.update({
         where: { id: questionId },

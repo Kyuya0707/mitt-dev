@@ -6,6 +6,11 @@ import { verifyQuestionCheckoutSession } from "@/lib/question-payment";
 import { verifyNegotiationCheckoutSession } from "@/lib/negotiation-payment";
 import { syncStripeConnectAccountStatusFromAccount } from "@/lib/stripe-connect";
 import { verifyBoostCheckoutSession } from "@/lib/boost-payment";
+import {
+  finalizeLostDispute,
+  recoverPayoutsForCharge,
+  restorePayoutsAfterWonDispute,
+} from "@/lib/stripe-payment-recovery";
 
 export const runtime = "nodejs";
 
@@ -84,6 +89,63 @@ export async function POST(req: Request) {
       return new NextResponse(`Webhook Error: ${getErrorMessage(err)}`, {
         status: 400,
       });
+    }
+
+    if (event.type === "charge.dispute.created") {
+      const dispute = event.data.object as Stripe.Dispute;
+      const chargeId =
+        typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
+      await recoverPayoutsForCharge({
+        stripe,
+        stripeEventId: event.id,
+        incidentId: dispute.id,
+        chargeId,
+        reason: "dispute",
+        affectedAmount: dispute.amount,
+      });
+      return new NextResponse(null, { status: 200 });
+    }
+
+    if (event.type === "charge.dispute.funds_reinstated") {
+      const dispute = event.data.object as Stripe.Dispute;
+      const chargeId =
+        typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
+      const charge = await stripe.charges.retrieve(chargeId);
+      if (!charge.refunded && charge.amount_refunded === 0) {
+        await restorePayoutsAfterWonDispute({
+          stripeEventId: event.id,
+          disputeId: dispute.id,
+          chargeId,
+        });
+      }
+      return new NextResponse(null, { status: 200 });
+    }
+
+    if (event.type === "charge.dispute.closed") {
+      const dispute = event.data.object as Stripe.Dispute;
+      if (dispute.status === "lost") {
+        const chargeId =
+          typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
+        await finalizeLostDispute({
+          stripeEventId: event.id,
+          disputeId: dispute.id,
+          chargeId,
+        });
+      }
+      return new NextResponse(null, { status: 200 });
+    }
+
+    if (event.type === "charge.refunded") {
+      const charge = event.data.object as Stripe.Charge;
+      await recoverPayoutsForCharge({
+        stripe,
+        stripeEventId: event.id,
+        incidentId: `${charge.id}_${charge.amount_refunded}`,
+        chargeId: charge.id,
+        reason: "refund",
+        affectedAmount: charge.amount_refunded,
+      });
+      return new NextResponse(null, { status: 200 });
     }
 
     if (event.type === "account.updated") {

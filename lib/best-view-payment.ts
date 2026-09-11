@@ -34,6 +34,7 @@ type VerifyBestViewCheckoutSessionResult =
         | "session_mismatch"
         | "invalid_kind"
         | "purchase_subject_not_found"
+        | "purchase_inactive"
         | "stripe_error";
     };
 
@@ -336,9 +337,10 @@ async function finalizeBestViewCheckoutSession(
 
   const transferGroup = buildBestViewTransferGroup(questionId, answerId);
   const stripe = getStripe();
-  const stripeChargeId = await resolveCheckoutChargeId(stripe, session).catch(
-    () => null
-  );
+  const stripeChargeId = await resolveCheckoutChargeId(stripe, session);
+  if (!stripeChargeId) {
+    return { ok: false, reason: "stripe_error" };
+  }
 
   if (!isPaid) {
     return {
@@ -360,6 +362,7 @@ async function finalizeBestViewCheckoutSession(
           id: true,
           amount: true,
           currency: true,
+          status: true,
           stripeChargeId: true,
           transferGroup: true,
         },
@@ -367,6 +370,10 @@ async function finalizeBestViewCheckoutSession(
     : null;
 
   if (existingBySession) {
+    if (existingBySession.status !== "PAID") {
+      return { ok: false, reason: "purchase_inactive" };
+    }
+
     await prisma.purchase.update({
       where: { id: existingBySession.id },
       data: {

@@ -26,6 +26,14 @@ function getStatusLabel(status: string) {
       return "送金済み";
     case "failed":
       return "失敗";
+    case "held_dispute":
+      return "異議申立てにより保留";
+    case "reversed_dispute":
+      return "異議申立てにより取消";
+    case "held_refund":
+      return "返金により保留";
+    case "reversed_refund":
+      return "返金により取消";
     default:
       return status;
   }
@@ -143,7 +151,9 @@ export default async function MyPageRewardsPage() {
     ...questionRewardPayouts.map((payout) => ({
       id: payout.id,
       typeLabel:
-        payout.kind === "negotiation_reward"
+        payout.kind === "dispute_reinstatement"
+          ? "異議申立て解決による再計上"
+          : payout.kind === "negotiation_reward"
           ? "交渉追加報酬"
           : "質問報酬",
       amount: payout.amount,
@@ -173,13 +183,15 @@ export default async function MyPageRewardsPage() {
     })),
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const totalAmount = history.reduce((sum, item) => sum + item.amount, 0);
   const paidAmount = history
     .filter((item) => item.status === "paid")
     .reduce((sum, item) => sum + item.amount, 0);
   const unpaidAmount = history
-    .filter((item) => item.status !== "paid")
+    .filter((item) =>
+      ["pending", "processing", "scheduled", "failed"].includes(item.status)
+    )
     .reduce((sum, item) => sum + item.amount, 0);
+  const totalAmount = paidAmount + unpaidAmount;
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const currentYear = String(now.getFullYear());

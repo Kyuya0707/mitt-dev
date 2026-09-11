@@ -55,7 +55,6 @@ export async function POST(request: Request) {
   const baseUrl = getBaseUrl();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    payment_method_types: ["card"],
     wallet_options: { link: { display: "never" } },
     line_items: [
       {

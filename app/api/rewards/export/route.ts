@@ -62,7 +62,11 @@ export async function GET(request: Request) {
     ["発生日", "種別", "説明", "総額", "手数料", "純額", "状態", "振込日", "明細ID"],
     ...payouts.map((payout) => [
       payout.createdAt.toISOString(),
-      payout.kind === "negotiation_reward" ? "交渉追加報酬" : "質問報酬",
+      payout.kind === "dispute_reinstatement"
+        ? "異議申立て解決による再計上"
+        : payout.kind === "negotiation_reward"
+          ? "交渉追加報酬"
+          : "質問報酬",
       payout.description ?? "",
       payout.grossAmount ?? payout.amount,
       payout.platformFeeAmount ?? 0,

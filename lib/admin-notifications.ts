@@ -157,3 +157,52 @@ export async function sendAdminPayoutNotification(
     });
   }
 }
+
+export async function sendAdminPaymentRiskNotification(input: {
+  reason: "dispute" | "refund";
+  chargeId: string;
+  incidentId: string;
+  recoveredAmount: number;
+  itemCount: number;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.NOTIFICATION_FROM_EMAIL;
+  const to = getAdminNotificationEmails();
+  if (!apiKey || !from || to.length === 0) return;
+
+  const reasonLabel = input.reason === "dispute" ? "異議申立て" : "返金";
+  const subject = `【KnowValue】決済${reasonLabel}の報酬回収処理`;
+  const text = [
+    subject,
+    "",
+    `Stripe Charge: ${input.chargeId}`,
+    `事象ID: ${input.incidentId}`,
+    `対象報酬: ${input.recoveredAmount.toLocaleString("ja-JP")}円`,
+    `対象明細数: ${input.itemCount}件`,
+    "",
+    "StripeダッシュボードとKnowValueの監査ログを確認してください。",
+    "",
+    buildCommonEmailFooterText(),
+  ].join("\n");
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from, to, subject, text }),
+    });
+    await response.text().catch(() => "");
+    if (!response.ok) {
+      console.error("[admin-notifications] payment risk email failed", {
+        status: response.status,
+      });
+    }
+  } catch (error) {
+    console.error("Admin payment risk notification failed:", {
+      message: getSafeErrorMessage(error),
+    });
+  }
+}

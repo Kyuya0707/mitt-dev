@@ -34,10 +34,19 @@ export async function resolveCheckoutChargeId(
   });
 
   const latestCharge = paymentIntent.latest_charge;
+  const charge =
+    typeof latestCharge === "string"
+      ? await stripe.charges.retrieve(latestCharge)
+      : latestCharge;
 
-  if (typeof latestCharge === "string") {
-    return latestCharge;
+  if (
+    !charge ||
+    charge.refunded ||
+    charge.disputed ||
+    charge.amount_refunded > 0
+  ) {
+    return null;
   }
 
-  return latestCharge?.id ?? null;
+  return charge.id;
 }

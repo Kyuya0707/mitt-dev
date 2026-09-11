@@ -16,7 +16,16 @@ export async function GET() {
   const payouts = await prisma.payout.findMany({
     where: {
       status: {
-        in: ["pending", "scheduled", "failed", "processing"],
+        in: [
+          "pending",
+          "scheduled",
+          "failed",
+          "processing",
+          "held_dispute",
+          "reversed_dispute",
+          "held_refund",
+          "reversed_refund",
+        ],
       },
     },
     orderBy: { createdAt: "desc" },
