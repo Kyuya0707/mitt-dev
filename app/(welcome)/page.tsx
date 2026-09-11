@@ -296,9 +296,7 @@ export default function WelcomePage() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.0, delay: 0.8 }}
               >
-                質問者は500円以上の報酬を設定して質問でき、回答者は実体験を自分の言葉で届けられます。
-                <br />
-                BEST回答者には質問報酬の90%を還元。広告なし・AI投稿禁止の有料Q&amp;Aです。
+                人の実体験を、有料で質問・回答できるQ&amp;Aサービスです。広告なし・AI回答禁止。良い回答には報酬が支払われます。
               </motion.p>
 
               <motion.p
