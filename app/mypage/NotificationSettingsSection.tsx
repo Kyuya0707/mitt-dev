@@ -117,6 +117,7 @@ export default function NotificationSettingsSection() {
       <MyPageCard
         title="通知設定"
         description="メール通知の受信設定を変更できます。"
+        collapsible
       >
         <p className="text-sm text-gray-500">読み込み中...</p>
       </MyPageCard>
@@ -127,6 +128,7 @@ export default function NotificationSettingsSection() {
     <MyPageCard
       title="通知設定"
       description="一般的なメール通知の受信設定です。"
+      collapsible
     >
       <p className="mb-4 text-sm text-gray-600">
         アプリ内通知は常に届きます。ここではメール通知のみ切り替えできます。

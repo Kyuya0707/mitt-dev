@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClientBrowser } from "@/lib/supabase-browser";
+import MyPageCard from "./MyPageCard";
 
 type Factor = { id: string; friendly_name?: string; status: string };
 
@@ -89,9 +90,12 @@ export default function TwoFactorAuthSection() {
   }
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold">2要素認証</h2>
-      <p className="mt-1 text-sm text-gray-600">認証アプリ（TOTP）を利用します。運営アカウントでは必須です。</p>
+    <MyPageCard
+      title="2要素認証"
+      description="認証アプリを使ってアカウントを保護します。"
+      collapsible
+    >
+      <p className="text-sm text-gray-600">認証アプリ（TOTP）を利用します。運営アカウントでは必須です。</p>
       {factor ? (
         <div className="mt-4 space-y-3">
           <p className="text-sm font-medium text-green-700">設定済み</p>
@@ -120,6 +124,6 @@ export default function TwoFactorAuthSection() {
         </div>
       )}
       {message && <p className="mt-3 text-sm text-gray-700">{message}</p>}
-    </section>
+    </MyPageCard>
   );
 }

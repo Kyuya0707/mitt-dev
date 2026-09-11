@@ -65,10 +65,15 @@ function ActionLink({
   return (
     <Link
       href={href}
-      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
+      className="group flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 transition hover:border-blue-200 hover:bg-blue-50"
     >
-      <div className="text-sm font-semibold text-gray-900">{title}</div>
-      <div className="mt-1 text-sm leading-6 text-gray-600">{description}</div>
+      <div>
+        <div className="text-sm font-semibold text-gray-900">{title}</div>
+        <div className="mt-0.5 text-xs leading-5 text-gray-500">{description}</div>
+      </div>
+      <span className="shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600">
+        →
+      </span>
     </Link>
   );
 }
@@ -257,7 +262,7 @@ export default async function MyPage({
 
   return (
     <div className="mx-auto max-w-6xl text-black">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-950">
             マイページ
@@ -273,7 +278,7 @@ export default async function MyPage({
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+      <div className="grid items-start gap-6 lg:grid-cols-[1.35fr_1fr]">
         <div className="space-y-6">
           <MyPageCard
             title="アカウント概要"
@@ -320,35 +325,44 @@ export default async function MyPage({
             </div>
           </MyPageCard>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ActionLink
-              href="/questions/new"
-              title="質問する"
-              description="知りたいことを報酬付きで投稿します。"
-            />
-            <ActionLink
-              href="/questions"
-              title="質問一覧を見る"
-              description="公開中の質問やカテゴリを確認できます。"
-            />
-            <ActionLink
-              href="/notifications"
-              title="通知を見る"
-              description="回答、BEST選定、交渉などの通知を確認できます。"
-            />
-            <ActionLink
-              href="/mypage/purchases"
-              title="購入履歴を見る"
-              description="質問投稿決済やBEST閲覧購入の履歴を確認できます。"
-            />
-            <ActionLink
-              href="/mypage/appeals"
-              title="異議申立て"
-              description="運営措置と審査結果を確認します。"
-            />
-          </div>
+          <MyPageCard
+            title="よく使うメニュー"
+            description="質問・通知・履歴へすぐに移動できます。"
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ActionLink
+                href="/questions/new"
+                title="質問する"
+                description="報酬付きで質問を投稿"
+              />
+              <ActionLink
+                href="/questions"
+                title="質問を探す"
+                description="公開中の質問を確認"
+              />
+              <ActionLink
+                href="/notifications"
+                title="通知"
+                description="回答やBEST選定を確認"
+              />
+              <ActionLink
+                href="/mypage/purchases"
+                title="購入履歴"
+                description="決済と購入内容を確認"
+              />
+              <ActionLink
+                href="/mypage/appeals"
+                title="異議申立て"
+                description="運営措置と審査結果を確認"
+              />
+            </div>
+          </MyPageCard>
 
-          <MyPageCard title="プロフィール・基本情報">
+          <MyPageCard
+            title="プロフィール・基本情報"
+            description="登録情報の詳細を確認できます。"
+            collapsible
+          >
             <div className="grid gap-3 sm:grid-cols-2">
               <InfoRow label="名前" value={fullName} />
               <InfoRow label="ユーザー名" value={dbUser.username || "未設定"} />
@@ -390,6 +404,7 @@ export default async function MyPage({
                 : "質問投稿履歴（最新3件）"
             }
             description="最近投稿した質問を確認できます。"
+            collapsible
             actions={
               <Link
                 href="/mypage/questions"
@@ -429,6 +444,7 @@ export default async function MyPage({
           <MyPageCard
             title={dbUser.answers.length === 0 ? "回答履歴" : "回答履歴（最新3件）"}
             description="最近投稿した回答を確認できます。"
+            collapsible
             actions={
               <Link
                 href="/mypage/answers"
@@ -493,12 +509,13 @@ export default async function MyPage({
             </Link>
           </MyPageCard>
 
-      <TwoFactorAuthSection />
-      <NotificationSettingsSection />
+          <TwoFactorAuthSection />
+          <NotificationSettingsSection />
 
           <MyPageCard
             title="同意状況"
             description="年齢と副業・税務に関する同意状況を確認できます。"
+            collapsible
           >
             <div className="space-y-6">
               <AgeConfirmationSection
@@ -516,6 +533,7 @@ export default async function MyPage({
           <MyPageCard
             title="アカウント操作"
             description="ログアウトなどのアカウント操作です。"
+            collapsible
           >
             <div className="flex flex-col gap-4">
               <Link

@@ -81,19 +81,25 @@ export default function StripeConnectSection(
   return (
     <MyPageCard
       title="報酬受取設定"
-      description="報酬を受け取るには設定が必要です。Stripeで本人確認・口座登録を行ってください。"
+      description={
+        props.onboardingCompleted
+          ? "回答で得た報酬の受取先を管理します。"
+          : "報酬を受け取るには、本人確認と口座登録が必要です。"
+      }
     >
-      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-        Stripeでは、KnowValueの運営者ではなく、KnowValue上で回答や知識提供を行い報酬を受け取る利用者として登録してください。
-        <div className="mt-2">
-          <Link
-            href="/stripe-connect-recipient"
-            className="font-medium text-amber-950 underline underline-offset-2"
-          >
-            利用者向けの説明を見る
-          </Link>
+      {!props.onboardingCompleted && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          Stripeでは、KnowValue上で回答や知識提供を行い、報酬を受け取る利用者として登録してください。
+          <div className="mt-2">
+            <Link
+              href="/stripe-connect-recipient"
+              className="font-medium text-amber-950 underline underline-offset-2"
+            >
+              登録方法を確認する
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {props.connectStatusParam === "return" && (
         <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
@@ -107,26 +113,28 @@ export default function StripeConnectSection(
         </div>
       )}
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <span className="text-sm font-semibold text-gray-800">ステータス</span>
-        <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white">
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-medium ${
+            props.onboardingCompleted
+              ? "bg-green-100 text-green-700"
+              : "bg-gray-900 text-white"
+          }`}
+        >
           {statusLabel}
         </span>
       </div>
-      <p className="mb-4 text-sm text-gray-600">{description}</p>
+      <p className="mt-3 text-sm text-gray-600">{description}</p>
 
       {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
 
-      {props.onboardingCompleted ? (
-        <p className="text-sm font-medium text-green-700">
-          報酬受取設定が完了しています。
-        </p>
-      ) : (
+      {!props.onboardingCompleted && (
         <button
           type="button"
           onClick={handleOnboarding}
           disabled={loading}
-          className="rounded-xl bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm text-white disabled:opacity-50"
         >
           {loading
             ? "Stripe設定へ移動中..."
@@ -134,6 +142,15 @@ export default function StripeConnectSection(
               ? "Stripe設定を続ける"
               : "Stripe設定をする"}
         </button>
+      )}
+
+      {props.onboardingCompleted && (
+        <Link
+          href="/stripe-connect-recipient"
+          className="mt-4 inline-flex text-sm font-medium text-blue-700 underline underline-offset-2"
+        >
+          受取設定について確認する
+        </Link>
       )}
     </MyPageCard>
   );
